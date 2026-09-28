@@ -27,8 +27,8 @@ with its tests.
 | 3 | Deterministic rebalancer | Done |
 | 4 | Suitability gate: policy rules that block unsuitable trades | Done |
 | 5 | Tax-lot engine | Done |
-| 6 | Lyzr agents with Safe AI guardrails | Next |
-| 7 | Audit ledger and AIMS | Planned |
+| 6 | Lyzr agents with Safe AI guardrails | Done |
+| 7 | Audit ledger and AIMS | Next |
 | 8 | Adviser UI and deployment | Planned |
 
 ## How rebalancing works
@@ -94,6 +94,49 @@ of short-term losses; after netting, $2,300 is taxed at 15%, about $345.
 Estimates exclude state tax and the 3.8% net investment income tax, and the long-term rate
 is approximated from the marginal rate (the real breakpoints are income levels).
 
+## Agents
+
+Two Lyzr agents handle the language at each end of the pipeline (`advisor.py`). Code does
+everything in between:
+
+```
+IPS text ──▶ IPS reader ──▶ rebalancer ──▶ suitability gate ──▶ tax engine ──▶ briefing writer
+             (Lyzr agent)   └───────────── deterministic Python ─────────────┘  (Lyzr agent)
+```
+
+- **IPS reader** (`agents/ips_reader.py`) turns an Investment Policy Statement into the
+  client's risk score, horizon, cash reserve and tax rate, and must quote, word for word,
+  the passage behind each fact. Code accepts a fact only if its quote really is in the IPS
+  (ignoring case, line breaks and curly quotes) and states that value and no other number,
+  so the 10 in "3 on a scale of 1 to 10" can never pass for the score. A rejected reading
+  gets one retry that lists its problems; if that fails too, or the facts break the profile
+  rules, the run stops. Nothing is guessed, and the dossier keeps each quote next to its
+  fact for the adviser to check.
+- **Briefing writer** (`agents/briefing.py`) explains the proposal, the gate's verdict and
+  the tax estimate to the adviser. It sees only facts that code has already formatted, and
+  every number it writes must be one of them: `19.8%` matches `19.80%`, but a number it
+  worked out itself does not. A draft that breaks the rule gets one rewrite, told which
+  numbers were wrong; if the rewrite breaks it too, the run stops.
+- **Safe AI**: both agents run at temperature 0 under one Lyzr Safe AI policy that detects
+  prompt injection, masks secrets, and redacts names, email addresses, phone numbers, SSNs
+  and card numbers. The IPS is fenced in `<ips>` tags and treated as data, never as
+  instructions.
+- **Lifecycle**: `lyzr_agents()` (`agents/lyzr_runtime.py`) creates the policy and both
+  agents in Lyzr Studio for a run and deletes them afterwards, even when the run fails.
+
+Tests and CI never call Lyzr. They use fake agents, plus an offline contract test that runs
+the agent and policy settings through the Lyzr SDK's own signatures and validation.
+
+### Run it live
+
+```bash
+cp .env.example .env                 # then set LYZR_API_KEY in .env
+uv run python scripts/lyzr_smoke.py  # advises the $100k demo client through real agents
+```
+
+The script prints the dossier as JSON, then the briefing. Agents use `openai/gpt-4.1`
+unless `LYZR_MODEL` says otherwise, e.g. `LYZR_MODEL=anthropic/claude-sonnet-4-5` in `.env`.
+
 ## Quickstart
 
 You only need [uv](https://docs.astral.sh/uv/getting-started/installation/); it
@@ -106,7 +149,7 @@ uv run pre-commit install  # run the checks on every commit
 ```
 
 Copy `.env.example` to `.env` and set `LYZR_API_KEY` before running anything
-that calls Lyzr.
+that calls Lyzr (see [Run it live](#run-it-live)).
 
 ## Quality gates
 
@@ -115,6 +158,6 @@ CI runs the same commands on every push and pull request:
 ```bash
 uv run ruff check           # lint, including security rules
 uv run ruff format --check  # formatting
-uv run mypy                 # strict type checking of src/ and tests/
+uv run mypy                 # strict type checking of src/, tests/ and scripts/
 uv run pytest --cov         # tests; fails if branch coverage drops below 90%
 ```

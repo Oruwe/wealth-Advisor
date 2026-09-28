@@ -5,6 +5,7 @@ description = "Governed wealth-advisory agent: Lyzr agents for language, determi
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "lyzr-adk>=0.1.12",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
@@ -51,11 +52,12 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+"scripts/**" = ["T201"]  # scripts talk to the terminal
 
 [tool.mypy]
 strict = true
 warn_unreachable = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
@@ -70,7 +72,11 @@ testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = ["-ra", "--import-mode=importlib"]
 strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # lyzr-adk 0.1.12 still declares its models with Pydantic V1-style validators and config.
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:lyzr",
+]
 
 [tool.coverage.run]
 branch = true

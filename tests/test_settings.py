@@ -22,6 +22,14 @@ def test_reads_api_key_from_environment(monkeypatch: pytest.MonkeyPatch) -> None
     assert Settings().lyzr_api_key.get_secret_value() == FAKE_KEY
 
 
+def test_model_defaults_to_gpt_4_1_and_can_be_overridden(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LYZR_API_KEY", FAKE_KEY)
+    default = Settings().lyzr_model
+    monkeypatch.setenv("LYZR_MODEL", "anthropic/claude-sonnet-4-5")
+
+    assert (default, Settings().lyzr_model) == ("openai/gpt-4.1", "anthropic/claude-sonnet-4-5")
+
+
 def test_reads_api_key_from_dotenv_and_ignores_unrelated_entries(tmp_path: Path) -> None:
     (tmp_path / ".env").write_text(f"LYZR_API_KEY={FAKE_KEY}\nOTHER_TOOL=1\n", encoding="utf-8")
 
