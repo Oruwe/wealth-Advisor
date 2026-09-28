@@ -64,7 +64,8 @@ class RebalanceCase(NamedTuple):
 
 @st.composite
 def rebalance_cases(draw: st.DrawFn, *, whole_shares: bool = False) -> RebalanceCase:
-    """Model and outside holdings, a price for every symbol, any target, a reserve that fits."""
+    """Model and outside holdings in 1-3 tax lots each, a price for every symbol, any target, and
+    a reserve that fits."""
     as_of = draw(dates)
     shares = (
         st.integers(1, 10_000).map(Decimal)
@@ -73,6 +74,16 @@ def rebalance_cases(draw: st.DrawFn, *, whole_shares: bool = False) -> Rebalance
     )
     price = st.decimals(
         min_value=Decimal("0.01"), max_value=Decimal(2_000), places=2 if whole_shares else 4
+    )
+    lots = st.lists(
+        st.builds(
+            TaxLot,
+            quantity=shares,
+            cost_basis=st.decimals(min_value=0, max_value=Decimal(10_000_000), places=2),
+            acquired_on=st.dates(min_value=date(2000, 1, 1), max_value=as_of),
+        ),
+        min_size=1,
+        max_size=3,
     )
     outside = draw(
         st.lists(symbols.filter(lambda s: s not in MODEL_SYMBOLS), max_size=4, unique=True)
@@ -86,11 +97,7 @@ def rebalance_cases(draw: st.DrawFn, *, whole_shares: bool = False) -> Rebalance
         as_of=as_of,
         cash=draw(st.decimals(min_value=0, max_value=Decimal(10_000_000), places=2)),
         holdings=tuple(
-            Holding(
-                security=security,
-                lots=(TaxLot(quantity=draw(shares), cost_basis=Decimal(0), acquired_on=as_of),),
-            )
-            for security in securities
+            Holding(security=security, lots=tuple(draw(lots))) for security in securities
         ),
     )
     prices = PriceSnapshot(

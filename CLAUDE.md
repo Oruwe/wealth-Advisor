@@ -20,6 +20,9 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
   the suitability rules in `suitability.yaml`, validated when the module is imported.
 - The suitability gate re-derives the post-trade portfolio from the orders. Never make it rely
   on figures a proposal reports about itself, and keep the rebalancer within the same caps.
+- Tax: sales relieve the highest-cost lots first (HIFO; ties go to the older lot), a partly
+  sold lot's basis is split pro rata to the nearest cent (half-even), and estimates are
+  federal only. Wash sales are flagged, not silently adjusted.
 - Secrets live in `Settings` as `SecretStr` and are never logged or serialised.
 - Build one step per PR (roadmap in README.md). Every step ships with tests, and all quality
   gates must pass before pushing.

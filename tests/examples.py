@@ -17,9 +17,14 @@ GLD = MODEL_SECURITIES[AssetClass.COMMODITY]
 TSLA = Security(symbol="TSLA", asset_class=AssetClass.EQUITY)
 
 
+def lot(quantity: str, cost_basis: str, acquired_on: date) -> TaxLot:
+    return TaxLot(
+        quantity=Decimal(quantity), cost_basis=Decimal(cost_basis), acquired_on=acquired_on
+    )
+
+
 def holding(security: Security, quantity: str, acquired_on: date = AS_OF) -> Holding:
-    lot = TaxLot(quantity=Decimal(quantity), cost_basis=Decimal(0), acquired_on=acquired_on)
-    return Holding(security=security, lots=(lot,))
+    return Holding(security=security, lots=(lot(quantity, "0", acquired_on),))
 
 
 def order(side: Side, security: Security, quantity: str, price: str) -> Order:
@@ -37,16 +42,28 @@ def profile(client_id: str = "C-1001", cash_reserve: str = "2000.00") -> ClientP
 
 
 def example_portfolio() -> Portfolio:
-    """$5k cash, $25k TSLA (outside the model), $30k VTI, $35k BND, $5k GLD."""
+    """$5k cash, $25k TSLA (outside the model), $30k VTI, $35k BND, $5k GLD, bought over years."""
     return Portfolio(
         client_id="C-1001",
         as_of=AS_OF,
         cash=Decimal("5000.00"),
         holdings=(
-            holding(TSLA, "100"),
-            holding(VTI, "100"),
-            holding(BND, "500"),
-            holding(GLD, "25"),
+            Holding(
+                security=TSLA,
+                lots=(
+                    lot("60", "10800.00", date(2024, 3, 15)),
+                    lot("40", "12000.00", date(2026, 5, 1)),
+                ),
+            ),
+            Holding(
+                security=VTI,
+                lots=(
+                    lot("70", "14000.00", date(2023, 6, 1)),
+                    lot("30", "9300.00", date(2026, 9, 1)),
+                ),
+            ),
+            Holding(security=BND, lots=(lot("500", "36500.00", date(2022, 1, 10)),)),
+            Holding(security=GLD, lots=(lot("25", "4000.00", date(2023, 11, 20)),)),
         ),
     )
 
