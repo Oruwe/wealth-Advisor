@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import NamedTuple, Protocol
 
@@ -93,6 +94,19 @@ def read_ips(
             "Read the IPS again and fix them."
         )
     raise IpsReadingError(problems)
+
+
+def check_quotes(ips_text: str, profile: ClientProfile, quotes: Mapping[str, str]) -> list[str]:
+    """Check a recorded profile against its quotes the way `read_ips` checked the reading it came
+    from. Empty means every fact is still grounded in the IPS."""
+    values = {
+        "risk_tolerance": Decimal(profile.risk_tolerance),
+        "time_horizon_years": Decimal(profile.time_horizon_years),
+        "cash_reserve": profile.cash_reserve,
+        "marginal_tax_rate": profile.marginal_tax_rate,
+    }
+    facts = {name: _Fact(value, str(value), quotes.get(name, "")) for name, value in values.items()}
+    return _problems(facts, normalise(ips_text))
 
 
 def _facts(reading: IpsReading) -> dict[str, _Fact]:

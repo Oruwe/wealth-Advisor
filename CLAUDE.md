@@ -34,6 +34,11 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
 - Tests and CI never call Lyzr: use the fakes in `tests/fakes.py`. `scripts/lyzr_smoke.py` is
   the only live path. The demo client (C-1001, $100k) lives in `wealth_advisor/demo.py`.
 - Warnings are errors in tests; the one exception is lyzr-adk's own Pydantic deprecations.
+- The audit ledger (`ledger.py`) is append-only: never edit or rewrite `ledger.jsonl`, and
+  record corrections as new entries. Hash only canonical JSON (sorted keys, compact, ASCII).
+  Recording advice requires a clean replay, and approving re-runs it.
+- Changing the rebalancer, gate, tax engine or briefing facts changes what old records replay
+  to, so bump the package version: each advice record names the engine version that made it.
 - Secrets live in `Settings` as `SecretStr` and are never logged or serialised.
 - Build one step per PR (roadmap in README.md). Every step ships with tests, and all quality
   gates must pass before pushing.
@@ -46,3 +51,4 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
 - `uv run pytest --cov`: tests with the 90% branch-coverage gate
 - `uv run python scripts/lyzr_smoke.py`: advise the demo client through live Lyzr agents
   (needs `LYZR_API_KEY` in `.env`)
+- `uv run python scripts/ledger.py verify`: check the audit ledger's chain, rules and replays

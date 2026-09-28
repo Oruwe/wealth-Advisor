@@ -28,7 +28,8 @@ with its tests.
 | 4 | Suitability gate: policy rules that block unsuitable trades | Done |
 | 5 | Tax-lot engine | Done |
 | 6 | Lyzr agents with Safe AI guardrails | Done |
-| 7 | Audit ledger and AIMS | Next |
+| 7a | Audit ledger: hash-chained records, replay, adviser decisions | Done |
+| 7b | AIMS: persistent Lyzr agents and a session per advice run | Next |
 | 8 | Adviser UI and deployment | Planned |
 
 ## How rebalancing works
@@ -138,8 +139,35 @@ cp .env.example .env                 # then set LYZR_API_KEY in .env
 uv run python scripts/lyzr_smoke.py  # advises the $100k demo client through real agents
 ```
 
-The script prints the dossier as JSON, then the briefing. Agents use `openai/gpt-4.1`
+The script prints the dossier as JSON, then the briefing, and records the run in the
+[audit ledger](#audit-ledger). Agents use `openai/gpt-4.1`
 unless `LYZR_MODEL` says otherwise, e.g. `LYZR_MODEL=anthropic/claude-sonnet-4-5` in `.env`.
+
+## Audit ledger
+
+Every advice run and every adviser decision is appended to `ledger.jsonl` by `ledger.py`,
+and nothing in it is ever edited.
+
+- **Tamper-evident.** Each record carries the SHA-256 hash of the record before it, taken
+  over a canonical JSON form. Editing, removing, adding or reordering any record breaks the
+  chain from that point on, and `verify` names the line where it breaks. Publish the latest
+  hash, the *head*: a ledger cut short no longer ends there.
+- **Replayable.** An advice record keeps everything the run started from: the IPS text,
+  the portfolio and the prices. `replay` re-checks the whole reasoning chain without calling
+  a model. The profile's quotes must still be in the IPS; the rebalancer, gate and tax
+  engine must produce exactly the recorded results; and every number in the briefing must
+  be in the facts. The ledger refuses to record advice that doesn't replay.
+- **Adviser decisions.** Approving or declining is its own record, pointing at the
+  advice's hash. Each advice run is decided once, only advice the gate passed can be
+  approved, and approving re-runs the replay first.
+
+```bash
+uv run python scripts/ledger.py list                                 # one line per record
+uv run python scripts/ledger.py verify                               # chain, rules and every replay
+uv run python scripts/ledger.py approve 37e03aadd162 --adviser YOU   # approve by hash prefix
+```
+
+The ledger holds client data, so it is gitignored. It assumes one writer at a time.
 
 ## Quickstart
 
