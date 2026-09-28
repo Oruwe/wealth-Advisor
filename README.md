@@ -24,12 +24,30 @@ with its tests.
 |---|---|---|
 | 1 | Foundation: toolchain, settings, quality gates, CI | Done |
 | 2 | Domain models: client profile (IPS), holdings, asset classes | Done |
-| 3 | Deterministic rebalancer | Next |
-| 4 | Suitability gate: policy rules that block unsuitable trades | Planned |
+| 3 | Deterministic rebalancer | Done |
+| 4 | Suitability gate: policy rules that block unsuitable trades | Next |
 | 5 | Tax-lot engine | Planned |
 | 6 | Lyzr agents with Safe AI guardrails | Planned |
 | 7 | Audit ledger and AIMS | Planned |
 | 8 | Adviser UI and deployment | Planned |
+
+## How rebalancing works
+
+1. The client's risk score (1–10) picks a target allocation from a fixed table
+   (`policy/model_portfolio.py`). Conservative scores hold at most 20% equity.
+2. Holdings outside the model (VTI, BND, GLD, plus uninvested cash) are sold in full.
+3. Each asset class gets a dollar target: its weight times the portfolio value,
+   scaled down when the client's cash reserve needs more than the cash weight, and
+   rounded down to the cent so targets never exceed the money available.
+4. Each model security's ideal trade is rounded down and up to whole shares. Every
+   combination (at most 8) is scored by its squared dollar drift from target, and the
+   best one that keeps cash at or above the reserve wins. Ties go to the smaller trade.
+
+All of this runs under a `Decimal` context that raises on any rounding or float, so
+the same inputs give the same orders on every machine. Hypothesis checks the
+guarantees on random portfolios: cash never drops below the reserve, value is
+conserved, every asset class lands within one share of its target, and rebalancing
+twice changes nothing.
 
 ## Quickstart
 
