@@ -1,6 +1,10 @@
 """Stand-ins for the Lyzr agents, so no test ever calls a model."""
 
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
+
+from lyzr import Studio
+from lyzr.providers import ModelResolver
 
 from wealth_advisor.agents.ips_reader import IpsReading
 
@@ -52,3 +56,66 @@ class FakeWriter:
     def run(self, message: str) -> str:
         self.messages.append(message)
         return self.drafts.pop(0)
+
+
+class FakeAgent:
+    """A Lyzr agent as Studio stores it: the SDK resolves the model and strips the prompts."""
+
+    def __init__(self, agent_id: str, config: dict[str, Any], reply: object) -> None:
+        provider, model, _ = ModelResolver.parse(config["provider"])
+        self.id, self.name, self.reply = agent_id, config["name"], reply
+        self.provider_id, self.model = provider.value, model
+        self.temperature = config["temperature"]
+        self.agent_role = config["role"].strip()
+        self.agent_goal = config["goal"].strip()
+        self.agent_instructions = config["instructions"].strip()
+        self.calls: list[dict[str, Any]] = []
+
+    def run(self, message: str, **options: Any) -> object:
+        self.calls.append({"message": message, **options})
+        return self.reply
+
+
+class FakeStudio:
+    """Lyzr Studio in memory. Policies and agents outlive each run, as they do in Lyzr."""
+
+    def __init__(self, replies: dict[str, object] | None = None) -> None:
+        self.replies = replies or {}
+        self.opened_with: list[dict[str, Any]] = []
+        self.policies: list[SimpleNamespace] = []
+        self.policy_configs: list[dict[str, Any]] = []
+        self.agents: dict[str, FakeAgent] = {}
+        self.created: list[dict[str, Any]] = []
+        self.fetched: list[tuple[str, object]] = []
+        self.closed = 0
+
+    def open(self, **settings: Any) -> Studio:
+        self.opened_with.append(settings)
+        return cast(Studio, self)
+
+    def list_rai_policies(self) -> SimpleNamespace:
+        return SimpleNamespace(policies=list(self.policies))
+
+    def create_rai_policy(self, **config: Any) -> SimpleNamespace:
+        self.policy_configs.append(config)
+        self.policies.append(
+            SimpleNamespace(id=f"policy-{len(self.policies) + 1}", name=config["name"])
+        )
+        return self.policies[-1]
+
+    def list_agents(self) -> SimpleNamespace:
+        return SimpleNamespace(agents=list(self.agents.values()))
+
+    def create_agent(self, **config: Any) -> FakeAgent:
+        self.created.append(config)
+        base = config["name"].rsplit("-", 1)[0]
+        agent = FakeAgent(f"agent-{len(self.created)}", config, self.replies.get(base))
+        self.agents[agent.id] = agent
+        return agent
+
+    def get_agent(self, agent_id: str, response_model: object = None) -> FakeAgent:
+        self.fetched.append((agent_id, response_model))
+        return self.agents[agent_id]
+
+    def close(self) -> None:
+        self.closed += 1

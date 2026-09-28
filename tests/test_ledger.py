@@ -256,6 +256,16 @@ def test_refuses_to_add_to_a_ledger_that_fails_verification(
         approved.record_advice("run-2", inputs, dossier, LATER)
 
 
+def test_refuses_a_decision_on_a_ledger_that_fails_verification(
+    ledger: Ledger, inputs: AdviceInputs, dossier: AdviceDossier
+) -> None:
+    advice = ledger.record_advice("run-1", inputs, dossier, AT)
+    rewrite(ledger, lambda lines: [lines[0].replace('"quantity":"429"', '"quantity":"430"')])
+
+    with pytest.raises(LedgerError, match="line 1 has been altered"):
+        ledger.record_decision(advice.hash, Decision.APPROVED, "adviser-7", LATER)
+
+
 def test_refuses_to_record_advice_that_does_not_replay(
     ledger: Ledger, inputs: AdviceInputs, dossier: AdviceDossier
 ) -> None:

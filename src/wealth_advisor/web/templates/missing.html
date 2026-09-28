@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Not found{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>No advice run with that hash</h1>
+  <p>The ledger has no advice record <span class="mono">{{ advice_hash }}</span>.
+    <a href="/">Back to the advice runs</a>.</p>
+</section>
+{% endblock %}

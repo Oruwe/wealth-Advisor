@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Ledger damaged{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="alert critical" role="alert">
+    <p>The ledger can't be read, so no dossier can be shown or decided.
+      <a href="/audit">See where it breaks</a>.</p>
+  </div>
+</section>
+{% endblock %}

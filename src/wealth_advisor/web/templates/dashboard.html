@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_status.html" import status_badge %}
+{% block title %}Advice runs{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Advice runs</h1>
+    <p class="lede">Each run reads the client's IPS, rebalances with deterministic math, passes the
+      suitability gate and estimates the tax. Review the dossier, then approve or decline it.</p>
+  </div>
+  {% if intact %}
+  <a class="integrity good" href="/audit"><span class="icon" aria-hidden="true">✓</span>
+    Ledger intact · {{ count }} records</a>
+  {% else %}
+  <a class="integrity critical" href="/audit"><span class="icon" aria-hidden="true">✕</span>
+    Ledger fails verification</a>
+  {% endif %}
+</section>
+
+{% if error %}<div class="alert critical" role="alert">{{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>New advice run</h2>
+  {% if can_run %}
+  <form method="post" action="/runs" class="inline-form">
+    <p>Advise the demo client C-1001 (a $100k conservative account) through the Lyzr agents.
+      It takes about a minute.</p>
+    <button class="button primary" type="submit">Run advice</button>
+  </form>
+  {% else %}
+  <p class="muted">Set <code>LYZR_API_KEY</code> in <code>.env</code> and restart the console to
+    run new advice. Reviewing, approving and auditing work without it.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Recorded runs</h2>
+  {% if damaged %}
+  <p>The ledger can't be read. <a href="/audit">See where it breaks</a>.</p>
+  {% elif not runs %}
+  <p class="muted">No advice runs recorded yet.</p>
+  {% else %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">#</th><th scope="col">Recorded</th><th scope="col">Client</th>
+          <th scope="col" class="num">Trades</th><th scope="col">Suitability gate</th>
+          <th scope="col" class="num">Est. tax</th><th scope="col">Decision</th>
+          <th scope="col">Lyzr session</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td class="num"><a href="/advice/{{ run.hash }}">{{ run.sequence }}</a></td>
+          <td>{{ run.recorded_at }}</td>
+          <td><a href="/advice/{{ run.hash }}">{{ run.client_id }}</a></td>
+          <td class="num">{{ run.orders }}</td>
+          <td>
+            {% if run.passed_gate %}<span class="badge good"><span aria-hidden="true">✓</span> Passed</span>
+            {% else %}<span class="badge critical"><span aria-hidden="true">✕</span> Blocked</span>{% endif %}
+          </td>
+          <td class="num">{{ run.estimated_tax }}</td>
+          <td>{{ status_badge(run.status) }}</td>
+          <td class="mono">{{ run.lyzr_session or "none" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
