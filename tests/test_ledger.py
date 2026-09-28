@@ -9,7 +9,7 @@ import pytest
 from fakes import GROUNDED_BRIEFING, FakeReader, FakeWriter, faithful_reading
 
 from wealth_advisor import ledger as ledger_module
-from wealth_advisor.advisor import AdviceDossier, Agents, advise
+from wealth_advisor.advisor import AdviceDossier, AgentProvenance, AgentRef, Agents, advise
 from wealth_advisor.demo import DEMO_IPS, demo_portfolio, demo_prices
 from wealth_advisor.domain.orders import RebalanceProposal
 from wealth_advisor.domain.suitability import Rule, Violation
@@ -114,6 +114,29 @@ def test_records_the_engine_that_produced_the_advice(
 
     assert isinstance(entry, AdviceEntry)
     assert entry.engine_version == version("wealth-advisor")
+    assert entry.provenance is None
+
+
+def test_records_where_lyzr_aims_logged_the_agents_side_of_the_run(
+    ledger: Ledger, inputs: AdviceInputs, dossier: AdviceDossier
+) -> None:
+    provenance = AgentProvenance(
+        session_id="run-1",
+        model="openai/gpt-4.1",
+        reader=AgentRef(
+            id="agent-1", name="wealth-advisor-ips-reader-1a2b", config_sha256="a" * 64
+        ),
+        writer=AgentRef(
+            id="agent-2", name="wealth-advisor-briefing-writer-3c4d", config_sha256="b" * 64
+        ),
+    )
+
+    ledger.record_advice("run-1", inputs, dossier, AT, provenance)
+    entry = ledger.records()[0].entry
+
+    assert isinstance(entry, AdviceEntry)
+    assert entry.provenance == provenance
+    assert ledger.verify() == []
 
 
 def test_writes_one_canonical_ascii_line_per_record(approved: Ledger) -> None:
