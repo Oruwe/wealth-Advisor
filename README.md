@@ -23,8 +23,8 @@ with its tests.
 | Step | Scope | Status |
 |---|---|---|
 | 1 | Foundation: toolchain, settings, quality gates, CI | Done |
-| 2 | Domain models: client profile (IPS), holdings, asset classes | Next |
-| 3 | Deterministic rebalancer | Planned |
+| 2 | Domain models: client profile (IPS), holdings, asset classes | Done |
+| 3 | Deterministic rebalancer | Next |
 | 4 | Suitability gate: policy rules that block unsuitable trades | Planned |
 | 5 | Tax-lot engine | Planned |
 | 6 | Lyzr agents with Safe AI guardrails | Planned |
