@@ -11,7 +11,8 @@ Trades: sell 100 TSLA, which is not in the model portfolio, for $25,000.00; sell
 buy 429 BND.
 Suitability: equity lands at 19.8% against a 20% cap, and cash of $10,170 stays above the
 $2,000 reserve.
-Tax: the estimated tax is $345, from a $4,600 long-term gain and a $2,300 short-term loss.
+Tax: the $2,300 short-term loss offsets half of the $4,600 long-term gain, leaving $2,300 of
+net long-term gain taxed at 15%: an estimated $345.
 """
 
 

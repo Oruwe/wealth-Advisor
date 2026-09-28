@@ -25,8 +25,11 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
   federal only. Wash sales are flagged, not silently adjusted.
 - Agents are checked by code, not trusted: `read_ips` accepts a fact only when its verbatim
   quote is in the IPS, mentions the fact, and has that value as its first number, and
-  `write_briefing` rejects any number that is not in the formatted facts. Each gets one retry with the problems listed.
-  Keep these guards in code; never loosen them to make a model pass.
+  `write_briefing` rejects any number that is not in the formatted facts. Each gets one retry
+  with the problems listed. Keep these guards in code; never loosen them to make a model pass.
+- Give the writer every intermediate figure it needs to explain a result (for tax: each result,
+  then what netting leaves to tax and at which rate). The number check cannot catch correct
+  numbers joined by wrong reasoning.
 - Untrusted text (an IPS) goes to an agent fenced in tags, and the agent is told it is data.
 - Tests and CI never call Lyzr: use the fakes in `tests/fakes.py`. `scripts/lyzr_smoke.py` is
   the only live path. The demo client (C-1001, $100k) lives in `wealth_advisor/demo.py`.

@@ -17,13 +17,13 @@ from wealth_advisor.rebalancer import propose_rebalance
 from wealth_advisor.suitability_gate import check_suitability
 from wealth_advisor.tax import estimate_tax
 
+# The short-term loss offsets half of the long-term gain; only the rest is taxed.
 DEMO_TAX: dict[str, object] = {
     "estimated_tax": "$345.00",
-    "short_term_gain": "-$2,300.00",
-    "long_term_gain": "$4,600.00",
-    "net_capital_loss": "$0.00",
-    "short_term_rate": "24.00%",
-    "long_term_rate": "15.00%",
+    "short_term_result": "loss of $2,300.00",
+    "long_term_result": "gain of $4,600.00",
+    "taxed_after_netting": ["$2,300.00 of net long-term gain at 15.00%"],
+    "net_capital_loss": "none",
     "wash_sales": [],
 }
 
@@ -133,6 +133,61 @@ def test_facts_name_every_broken_rule_and_wash_sale(analysis: Analysis) -> None:
     }
     assert facts["tax"] == DEMO_TAX | {
         "wash_sales": ["VTI: $300.00 of losses at risk; VTI bought on 2026-09-01 is still held"]
+    }
+
+
+@pytest.mark.parametrize(
+    ("short_term", "long_term", "results", "taxed", "loss"),
+    [
+        pytest.param(
+            "1000",
+            "500",
+            ("gain of $1,000.00", "gain of $500.00"),
+            [
+                "$1,000.00 of net short-term gain at 24.00%",
+                "$500.00 of net long-term gain at 15.00%",
+            ],
+            "none",
+            id="two-gains",
+        ),
+        pytest.param(
+            "1000",
+            "-400",
+            ("gain of $1,000.00", "loss of $400.00"),
+            ["$600.00 of net short-term gain at 24.00%"],
+            "none",
+            id="long-term-loss-offsets-short-term-gain",
+        ),
+        pytest.param(
+            "-3000",
+            "1000",
+            ("loss of $3,000.00", "gain of $1,000.00"),
+            [],
+            "$2,000.00",
+            id="net-loss",
+        ),
+        pytest.param("0", "0", ("none", "none"), [], "none", id="nothing-sold"),
+    ],
+)
+def test_facts_show_what_netting_leaves_to_tax(
+    analysis: Analysis,
+    short_term: str,
+    long_term: str,
+    results: tuple[str, str],
+    taxed: list[str],
+    loss: str,
+) -> None:
+    tax = analysis.tax.model_copy(
+        update={"short_term_gain": Decimal(short_term), "long_term_gain": Decimal(long_term)}
+    )
+
+    facts = briefing_facts(analysis.profile, analysis.proposal, analysis.suitability, tax)
+
+    assert facts["tax"] == DEMO_TAX | {
+        "short_term_result": results[0],
+        "long_term_result": results[1],
+        "taxed_after_netting": taxed,
+        "net_capital_loss": loss,
     }
 
 

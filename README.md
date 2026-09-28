@@ -117,7 +117,10 @@ IPS text ──▶ IPS reader ──▶ rebalancer ──▶ suitability gate �
   the tax estimate to the adviser. It sees only facts that code has already formatted, and
   every number it writes must be one of them: `19.8%` matches `19.80%`, but a number it
   worked out itself does not. A draft that breaks the rule gets one rewrite, told which
-  numbers were wrong; if the rewrite breaks it too, the run stops.
+  numbers were wrong; if the rewrite breaks it too, the run stops. A number check can't
+  catch right numbers joined by wrong reasoning, so the facts spell out every step the
+  writer has to explain. For tax, that is each result, then what netting leaves to tax and
+  at which rate, so the writer restates the calculation instead of reconstructing it.
 - **Safe AI**: both agents run at temperature 0 under one Lyzr Safe AI policy that detects
   prompt injection, masks secrets, and redacts names, email addresses, phone numbers, SSNs
   and card numbers. The IPS is fenced in `<ips>` tags and treated as data, never as
