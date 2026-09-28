@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Tool caches and reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Secrets: only the template is committed
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

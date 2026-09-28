@@ -1,0 +1,36 @@
+minimum_pre_commit_version: "4.6.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  # Run the tool versions pinned in uv.lock, so local hooks and CI can never disagree.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --locked ruff check --fix
+        language: unsupported
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --locked ruff format
+        language: unsupported
+        types_or: [python, pyi]
+        require_serial: true
+      - id: mypy
+        name: mypy
+        entry: uv run --locked mypy
+        language: unsupported
+        types_or: [python, pyi]
+        pass_filenames: false
+        require_serial: true
