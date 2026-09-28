@@ -25,3 +25,6 @@ coverage.xml
 .idea/
 .vscode/
 .DS_Store
+
+# Audit ledger: it holds client data, so it is never committed
+ledger.jsonl

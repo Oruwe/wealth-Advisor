@@ -117,12 +117,11 @@ def write_briefing(facts: dict[str, object], writer: WriterAgent, attempts: int 
     """Have the writer brief the adviser, rejecting any draft with a number that is not in the
     facts. A rejected draft gets one retry that names the offending numbers."""
     facts_json = json.dumps(facts, indent=2)
-    allowed = numbers_in(facts_json)
     message = f"<facts>\n{facts_json}\n</facts>"
     stray: list[str] = []
     for _ in range(attempts):
         draft = writer.run(message)
-        stray = unsupported_numbers(draft, allowed)
+        stray = stray_numbers(draft, facts)
         if not stray:
             return draft
         message = (
@@ -130,6 +129,11 @@ def write_briefing(facts: dict[str, object], writer: WriterAgent, attempts: int 
             f"the facts: {', '.join(stray)}. Rewrite it using only numbers copied from the facts."
         )
     raise BriefingError(f"the briefing uses numbers that are not in the facts: {', '.join(stray)}")
+
+
+def stray_numbers(briefing: str, facts: dict[str, object]) -> list[str]:
+    """The numbers in a briefing, as written, that are not in the facts it was written from."""
+    return unsupported_numbers(briefing, numbers_in(json.dumps(facts, indent=2)))
 
 
 def _result(gain: Decimal) -> str:
