@@ -28,6 +28,12 @@ def numbers_in(text: str) -> set[Decimal]:
     return {_value(match) for match in _NUMBER.finditer(text)}
 
 
+def first_number(text: str) -> Decimal | None:
+    """The first number in the text, read the same way as `numbers_in`."""
+    match = _NUMBER.search(text)
+    return _value(match) if match else None
+
+
 def unsupported_numbers(text: str, allowed: set[Decimal]) -> list[str]:
     """The numbers in the text, as written, whose values are not allowed. List markers such as
     "1." at the start of a line are not numbers."""

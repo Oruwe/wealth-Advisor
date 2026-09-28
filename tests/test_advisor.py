@@ -22,7 +22,7 @@ def test_advises_the_demo_client_from_ips_to_briefing(
     dossier = advise(DEMO_IPS, portfolio, prices, faithful_agents())
 
     assert dossier.profile == profile()
-    assert dossier.ips_quotes["risk_tolerance"] == "Risk tolerance: 3"
+    assert dossier.ips_quotes["risk_tolerance"] == "Risk tolerance: 3 on a scale of 1 to 10."
     assert dossier.proposal.orders == (
         order(Side.SELL, TSLA, "100", "250"),
         order(Side.SELL, VTI, "34", "300"),
