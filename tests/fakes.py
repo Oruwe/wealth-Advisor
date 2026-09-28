@@ -19,7 +19,7 @@ def faithful_reading(**changes: Any) -> IpsReading:
     """What a faithful reader returns for `DEMO_IPS`, with any fields changed."""
     return IpsReading(
         risk_tolerance=3,
-        risk_tolerance_quote="Risk tolerance: 3",
+        risk_tolerance_quote="Risk tolerance: 3 on a scale of 1 to 10.",
         time_horizon_years=10,
         time_horizon_quote="Time horizon: 10 years.",
         cash_reserve="2000",

@@ -107,9 +107,10 @@ IPS text ──▶ IPS reader ──▶ rebalancer ──▶ suitability gate �
 - **IPS reader** (`agents/ips_reader.py`) turns an Investment Policy Statement into the
   client's risk score, horizon, cash reserve and tax rate, and must quote, word for word,
   the passage behind each fact. Code accepts a fact only if its quote really is in the IPS
-  (ignoring case, line breaks and curly quotes) and states that value and no other number,
-  so the 10 in "3 on a scale of 1 to 10" can never pass for the score. A rejected reading
-  gets one retry that lists its problems; if that fails too, or the facts break the profile
+  (ignoring case, line breaks and curly quotes), mentions the fact, and has that value as
+  its first number. "Risk tolerance: 3 on a scale of 1 to 10." backs a score of 3, never
+  10, and a line about a 10% loss can't back a risk score at all. A rejected reading gets
+  one retry that lists its problems; if that fails too, or the facts break the profile
   rules, the run stops. Nothing is guessed, and the dossier keeps each quote next to its
   fact for the adviser to check.
 - **Briefing writer** (`agents/briefing.py`) explains the proposal, the gate's verdict and
