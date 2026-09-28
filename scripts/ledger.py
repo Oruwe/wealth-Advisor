@@ -84,10 +84,15 @@ def _describe(record: LedgerRecord) -> str:
     if isinstance(entry, AdviceEntry):
         dossier = entry.dossier
         verdict = "passed the gate" if dossier.suitability.approved else "BLOCKED by the gate"
+        source = (
+            f"Lyzr session {entry.provenance.session_id} via {entry.provenance.model}"
+            if entry.provenance
+            else f"run {entry.run_id}"
+        )
         return (
             f"{when} advice {record.hash[:12]} for {dossier.profile.client_id}: "
             f"{len(dossier.proposal.orders)} orders, {verdict}, "
-            f"est. tax {dollars(dossier.tax.estimated_tax)} (run {entry.run_id})"
+            f"est. tax {dollars(dossier.tax.estimated_tax)} ({source})"
         )
     note = f": {entry.note}" if entry.note else ""
     return f"{when} {entry.decision} by {entry.adviser_id} on {entry.advice_hash[:12]}{note}"

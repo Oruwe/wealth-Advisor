@@ -31,6 +31,10 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
   then what netting leaves to tax and at which rate). The number check cannot catch correct
   numbers joined by wrong reasoning.
 - Untrusted text (an IPS) goes to an agent fenced in tags, and the agent is told it is data.
+- Lyzr agents are versioned by a fingerprint of their configuration, which ends their name.
+  Never update or delete them from code, and never edit them in Lyzr Studio: change the code,
+  and the next run creates a new version. A run refuses an agent that no longer matches its name.
+  Every agent call of a run uses the run's ID as its Lyzr session, recorded in the ledger.
 - Tests and CI never call Lyzr: use the fakes in `tests/fakes.py`. `scripts/lyzr_smoke.py` is
   the only live path. The demo client (C-1001, $100k) lives in `wealth_advisor/demo.py`.
 - Warnings are errors in tests; the one exception is lyzr-adk's own Pydantic deprecations.

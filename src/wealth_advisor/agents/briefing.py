@@ -26,8 +26,9 @@ calculate, round, estimate or introduce a number, and do not use numbered lists.
 Cover, in this order:
 - Verdict: whether the suitability gate approved the proposal, and any rule it broke.
 - Trades: what is sold and bought, and why.
-- Suitability: how the result fits the client's IPS, comparing weights with their caps and
-  cash with the reserve.
+- Suitability: how the result fits the client's IPS. Caps and the cash reserve are limits;
+  targets are only goals. Compare each weight with its cap, say how close it lands to its
+  target without calling it within the target, and compare cash with the reserve.
 - Tax: the estimated tax and how it arises. Losses offset gains before any tax applies, so
   explain it as the short- and long-term results, then what is left to tax after netting
   (taxed_after_netting, each at its own rate), then any net capital loss or wash-sale warning.

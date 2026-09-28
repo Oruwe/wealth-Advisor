@@ -1,5 +1,7 @@
 from typing import NamedTuple
 
+from pydantic import Field
+
 from wealth_advisor.agents.briefing import WriterAgent, briefing_facts, write_briefing
 from wealth_advisor.agents.ips_reader import ReaderAgent, read_ips
 from wealth_advisor.domain.client import ClientProfile
@@ -17,6 +19,24 @@ from wealth_advisor.tax import estimate_tax
 class Agents(NamedTuple):
     reader: ReaderAgent
     writer: WriterAgent
+
+
+class AgentRef(DomainModel):
+    """A Lyzr agent, and the fingerprint of the configuration it ran with."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AgentProvenance(DomainModel):
+    """Where an advice run's agent work lives in Lyzr: the session holding every agent call, the
+    model, and the agents that made them."""
+
+    session_id: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    reader: AgentRef
+    writer: AgentRef
 
 
 class AdviceDossier(DomainModel):

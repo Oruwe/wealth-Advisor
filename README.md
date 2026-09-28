@@ -29,8 +29,8 @@ with its tests.
 | 5 | Tax-lot engine | Done |
 | 6 | Lyzr agents with Safe AI guardrails | Done |
 | 7a | Audit ledger: hash-chained records, replay, adviser decisions | Done |
-| 7b | AIMS: persistent Lyzr agents and a session per advice run | Next |
-| 8 | Adviser UI and deployment | Planned |
+| 7b | AIMS: versioned Lyzr agents and a session per advice run | Done |
+| 8 | Adviser UI and deployment | Next |
 
 ## How rebalancing works
 
@@ -126,11 +126,31 @@ IPS text ──▶ IPS reader ──▶ rebalancer ──▶ suitability gate �
   prompt injection, masks secrets, and redacts names, email addresses, phone numbers, SSNs
   and card numbers. The IPS is fenced in `<ips>` tags and treated as data, never as
   instructions.
-- **Lifecycle**: `lyzr_agents()` (`agents/lyzr_runtime.py`) creates the policy and both
-  agents in Lyzr Studio for a run and deletes them afterwards, even when the run fails.
+- **AIMS**: see [Lyzr AIMS: where each run's agent work lives](#lyzr-aims-where-each-runs-agent-work-lives).
 
-Tests and CI never call Lyzr. They use fake agents, plus an offline contract test that runs
-the agent and policy settings through the Lyzr SDK's own signatures and validation.
+Tests and CI never call Lyzr. They use a fake Lyzr Studio, plus an offline contract test that
+runs every call through the Lyzr SDK's own signatures, models and validation.
+
+### Lyzr AIMS: where each run's agent work lives
+
+Lyzr's AI Management System (AIMS) keeps the agents and logs their conversations. The advisor
+is set up so that every advice run can be found there, and so that what AIMS shows is exactly
+what the code ran (`agents/lyzr_runtime.py`).
+
+- **Versioned agents that stay.** Each agent's name ends with a fingerprint (SHA-256) of
+  everything that shapes its output: model, role, goal, instructions, output format and the
+  Safe AI policy. A run reuses the agents whose names match the code and creates any that are
+  missing. Changing the model or a prompt creates a new agent version and leaves the old one,
+  with its history, untouched. Nothing is updated in place or deleted.
+- **Edits in Lyzr Studio are refused.** Before reusing an agent, the run compares its model,
+  temperature, role, goal and instructions with the code. If someone changed it in Studio, the
+  run stops and says so; no advice is produced from a prompt the code doesn't know about.
+- **One session per run.** Every agent call of an advice run shares one Lyzr session, named
+  after the run, on behalf of the client's ID.
+- **In the ledger.** Each advice record keeps the session ID, the model, and each agent's ID,
+  name and configuration fingerprint. `ledger.py list` shows the session, so any record leads
+  straight to its agent conversations in AIMS, and any agent conversation leads back to the
+  record that approved or declined it.
 
 ### Run it live
 
@@ -139,9 +159,11 @@ cp .env.example .env                 # then set LYZR_API_KEY in .env
 uv run python scripts/lyzr_smoke.py  # advises the $100k demo client through real agents
 ```
 
-The script prints the dossier as JSON, then the briefing, and records the run in the
-[audit ledger](#audit-ledger). Agents use `openai/gpt-4.1`
-unless `LYZR_MODEL` says otherwise, e.g. `LYZR_MODEL=anthropic/claude-sonnet-4-5` in `.env`.
+The first run creates the Safe AI policy and both agents in Lyzr Studio; later runs reuse
+them. The script prints the dossier as JSON, then the briefing, records the run in the
+[audit ledger](#audit-ledger), and prints the run's Lyzr session and agents. Agents use
+`openai/gpt-4.1` unless `LYZR_MODEL` says otherwise, e.g.
+`LYZR_MODEL=anthropic/claude-sonnet-4-5` in `.env`, which gets its own agent versions.
 
 ## Audit ledger
 

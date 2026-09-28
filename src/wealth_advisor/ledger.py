@@ -17,7 +17,7 @@ from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, Field, ValidationError
 
-from wealth_advisor.advisor import AdviceDossier
+from wealth_advisor.advisor import AdviceDossier, AgentProvenance
 from wealth_advisor.agents.briefing import briefing_facts, stray_numbers
 from wealth_advisor.agents.ips_reader import check_quotes
 from wealth_advisor.domain.market import PriceSnapshot
@@ -45,6 +45,8 @@ class AdviceEntry(DomainModel):
     engine_version: str = ENGINE_VERSION
     inputs: AdviceInputs
     dossier: AdviceDossier
+    # Where Lyzr AIMS logged the agents' side of the run; None for runs without Lyzr agents.
+    provenance: AgentProvenance | None = None
 
 
 class Decision(StrEnum):
@@ -92,10 +94,15 @@ class Ledger:
         return [LedgerRecord.model_validate_json(line) for line in self._lines()]
 
     def record_advice(
-        self, run_id: str, inputs: AdviceInputs, dossier: AdviceDossier, recorded_at: datetime
+        self,
+        run_id: str,
+        inputs: AdviceInputs,
+        dossier: AdviceDossier,
+        recorded_at: datetime,
+        provenance: AgentProvenance | None = None,
     ) -> LedgerRecord:
         """Record an advice run, but only if everything in it still re-derives from its inputs."""
-        entry = AdviceEntry(run_id=run_id, inputs=inputs, dossier=dossier)
+        entry = AdviceEntry(run_id=run_id, inputs=inputs, dossier=dossier, provenance=provenance)
         if problems := replay(entry):
             raise LedgerError(problems)
         return self._append(entry, recorded_at)
