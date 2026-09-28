@@ -1,19 +1,10 @@
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from decimal import (
-    ROUND_HALF_EVEN,
-    Context,
-    Decimal,
-    DivisionByZero,
-    FloatOperation,
-    Inexact,
-    InvalidOperation,
-    Overflow,
-    localcontext,
-)
+from decimal import Decimal, localcontext
 from fractions import Fraction
 from itertools import product
+from types import MappingProxyType
 
 from wealth_advisor.domain.client import ClientProfile
 from wealth_advisor.domain.market import PriceSnapshot
@@ -25,15 +16,12 @@ from wealth_advisor.domain.portfolio import (
     Security,
     TargetAllocation,
 )
+from wealth_advisor.domain.primitives import EXACT_CONTEXT
 from wealth_advisor.policy.model_portfolio import MODEL_SECURITIES, TARGET_BY_RISK
+from wealth_advisor.policy.suitability import SUITABILITY_POLICY
 
-# Every operation below must be exact: rounding, or a float sneaking in, raises instead.
-_EXACT = Context(
-    prec=60,
-    rounding=ROUND_HALF_EVEN,
-    traps=[InvalidOperation, DivisionByZero, Overflow, Inexact, FloatOperation],
-)
 _INVESTED = (AssetClass.EQUITY, AssetClass.FIXED_INCOME, AssetClass.COMMODITY)
+_NO_CAPS: Mapping[AssetClass, Decimal] = MappingProxyType({})
 
 
 class RebalanceError(ValueError):
@@ -70,7 +58,11 @@ def propose_rebalance(
             f"profile is for {profile.client_id}, portfolio is for {portfolio.client_id}"
         )
     return rebalance(
-        portfolio, prices, TARGET_BY_RISK[profile.risk_tolerance], profile.cash_reserve
+        portfolio,
+        prices,
+        TARGET_BY_RISK[profile.risk_tolerance],
+        profile.cash_reserve,
+        max_weight=SUITABILITY_POLICY.band_for(profile.risk_tolerance).max_weight,
     )
 
 
@@ -79,15 +71,21 @@ def rebalance(
     prices: PriceSnapshot,
     target: TargetAllocation,
     cash_reserve: Decimal,
+    max_weight: Mapping[AssetClass, Decimal] = _NO_CAPS,
     model: Mapping[AssetClass, Security] = MODEL_SECURITIES,
 ) -> RebalanceProposal:
     """Sell holdings outside the model, then trade each model security in whole shares, choosing
     the rounding (down or up, per security) with the least squared dollar drift from target that
-    keeps cash at or above the reserve. Ties go to the lower turnover."""
-    with localcontext(_EXACT):
+    keeps cash at or above the reserve and every capped asset class within its cap. Ties go to
+    the lower turnover."""
+    with localcontext(EXACT_CONTEXT):
         total = portfolio.market_value(prices)
         if cash_reserve > total:
             raise RebalanceError(f"cash reserve {cash_reserve} exceeds portfolio value {total}")
+        for asset_class, cap in max_weight.items():
+            weight = target.weights[asset_class]
+            if weight > cap:
+                raise RebalanceError(f"target {asset_class} weight {weight} exceeds its cap {cap}")
 
         exits, held = _split_by_model(portfolio, model)
         exit_orders = [
@@ -113,7 +111,8 @@ def rebalance(
             )
             for asset_class in _INVESTED
         }
-        trades = _best_trades(legs, cash, cash_reserve)
+        limits = {asset_class: cap * total for asset_class, cap in max_weight.items()}
+        trades = _best_trades(legs, cash, cash_reserve, limits)
         cash_after = cash - sum(
             (trade * legs[asset_class].price for asset_class, trade in trades.items()),
             start=Decimal(0),
@@ -191,12 +190,22 @@ def _cents_down(amount: Fraction) -> Decimal:
 
 
 def _best_trades(
-    legs: Mapping[AssetClass, _Leg], cash: Decimal, cash_reserve: Decimal
+    legs: Mapping[AssetClass, _Leg],
+    cash: Decimal,
+    cash_reserve: Decimal,
+    limits: Mapping[AssetClass, Decimal],
 ) -> dict[AssetClass, Decimal]:
-    def spend(trades: tuple[Decimal, ...]) -> Decimal:
-        return sum(
+    def allowed(trades: tuple[Decimal, ...]) -> bool:
+        after = {
+            asset_class: leg.value_after(trade)
+            for (asset_class, leg), trade in zip(legs.items(), trades, strict=True)
+        }
+        spent = sum(
             (trade * leg.price for leg, trade in zip(legs.values(), trades, strict=True)),
             start=Decimal(0),
+        )
+        return cash - spent >= cash_reserve and all(
+            after[asset_class] <= limit for asset_class, limit in limits.items()
         )
 
     def rank(trades: tuple[Decimal, ...]) -> tuple[Decimal, Decimal, tuple[Decimal, ...]]:
@@ -205,10 +214,10 @@ def _best_trades(
         turnover = sum((abs(t) * leg.price for leg, t in pairs), start=Decimal(0))
         return drift, turnover, trades
 
-    affordable = [
+    allowed_trades = [
         trades
         for trades in product(*(leg.candidate_trades() for leg in legs.values()))
-        if cash - spend(trades) >= cash_reserve
+        if allowed(trades)
     ]
-    best = min(affordable, key=rank)
+    best = min(allowed_trades, key=rank)
     return dict(zip(legs, best, strict=True))

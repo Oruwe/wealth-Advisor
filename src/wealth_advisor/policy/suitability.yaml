@@ -1,0 +1,18 @@
+# Suitability policy, owned by compliance. The test suite checks every change against the
+# house model portfolios, and the app refuses to start if this file is invalid.
+
+# The only securities a proposal may buy, or leave in the account after its trades.
+approved_securities: [VTI, BND, GLD]
+
+# The most each asset class may be of the portfolio after the trades, by risk score.
+# Cash has no cap: the client's IPS cash reserve sets its floor instead.
+risk_bands:
+  - name: conservative
+    risk_scores: [1, 2, 3]
+    max_weight: {equity: 0.20, commodity: 0.10}
+  - name: moderate
+    risk_scores: [4, 5, 6, 7]
+    max_weight: {equity: 0.70, commodity: 0.10}
+  - name: aggressive
+    risk_scores: [8, 9, 10]
+    max_weight: {equity: 0.95, commodity: 0.10}

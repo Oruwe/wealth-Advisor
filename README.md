@@ -25,8 +25,8 @@ with its tests.
 | 1 | Foundation: toolchain, settings, quality gates, CI | Done |
 | 2 | Domain models: client profile (IPS), holdings, asset classes | Done |
 | 3 | Deterministic rebalancer | Done |
-| 4 | Suitability gate: policy rules that block unsuitable trades | Next |
-| 5 | Tax-lot engine | Planned |
+| 4 | Suitability gate: policy rules that block unsuitable trades | Done |
+| 5 | Tax-lot engine | Next |
 | 6 | Lyzr agents with Safe AI guardrails | Planned |
 | 7 | Audit ledger and AIMS | Planned |
 | 8 | Adviser UI and deployment | Planned |
@@ -41,13 +41,36 @@ with its tests.
    rounded down to the cent so targets never exceed the money available.
 4. Each model security's ideal trade is rounded down and up to whole shares. Every
    combination (at most 8) is scored by its squared dollar drift from target, and the
-   best one that keeps cash at or above the reserve wins. Ties go to the smaller trade.
+   best one that keeps cash at or above the reserve, and every asset class within the
+   client's suitability caps, wins. Ties go to the smaller trade.
 
 All of this runs under a `Decimal` context that raises on any rounding or float, so
 the same inputs give the same orders on every machine. Hypothesis checks the
 guarantees on random portfolios: cash never drops below the reserve, value is
 conserved, every asset class lands within one share of its target, and rebalancing
 twice changes nothing.
+
+## Suitability gate
+
+No proposal should reach an adviser without passing the gate (`suitability_gate.py`).
+It replays the proposal's orders on the client's portfolio and checks the result, so it
+never trusts the figures a proposal reports about itself. The rules live in
+`policy/suitability.yaml`, which compliance can edit without touching code; a typo or
+an incomplete rule set stops the app from starting.
+
+| Rule | Blocks a proposal that |
+|---|---|
+| `approved_securities` | buys or keeps anything off the approved list: meme coins, options, single stocks |
+| `max_weight` | leaves an asset class above its cap for the client's risk band, e.g. conservative ≤ 20% equity |
+| `cash_reserve` | spends the cash reserve in the client's IPS |
+| `no_overselling` | sells more than the client holds |
+| `snapshot_prices` | prices an order away from the day's price snapshot |
+| `matching_figures` | reports values its orders don't produce |
+| `same_client`, `same_date` | mixes up clients or dates |
+
+A blocked proposal gets a report naming every rule it breaks, in words an adviser can
+read. The rebalancer respects the same caps, and a property test checks that every
+proposal it makes, for any portfolio and any risk score, passes the gate.
 
 ## Quickstart
 

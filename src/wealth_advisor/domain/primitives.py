@@ -1,7 +1,23 @@
-from decimal import Decimal
+from decimal import (
+    ROUND_HALF_EVEN,
+    Context,
+    Decimal,
+    DivisionByZero,
+    FloatOperation,
+    Inexact,
+    InvalidOperation,
+    Overflow,
+)
 from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+
+# Finance code runs under this context: any rounding, or a float sneaking in, raises instead.
+EXACT_CONTEXT = Context(
+    prec=60,
+    rounding=ROUND_HALF_EVEN,
+    traps=[InvalidOperation, DivisionByZero, Overflow, Inexact, FloatOperation],
+)
 
 
 def _normalise_symbol(value: object) -> object:
