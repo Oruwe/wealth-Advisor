@@ -3,7 +3,12 @@ from unicodedata import lookup
 
 import pytest
 
-from wealth_advisor.agents.grounding import normalise, numbers_in, unsupported_numbers
+from wealth_advisor.agents.grounding import (
+    first_number,
+    normalise,
+    numbers_in,
+    unsupported_numbers,
+)
 
 
 @pytest.mark.parametrize(
@@ -48,3 +53,15 @@ def test_skips_list_markers_only_at_the_start_of_a_line() -> None:
     draft = "1. Sell 34 VTI.\n2) The fee is $7. That is all."
 
     assert unsupported_numbers(draft, {Decimal(34)}) == ["7"]
+
+
+@pytest.mark.parametrize(
+    ("text", "first"),
+    [
+        pytest.param("Risk tolerance: 3 on a scale of 1 to 10.", Decimal(3), id="scale"),
+        pytest.param("keep $25k in cash", Decimal(25_000), id="suffix"),
+        pytest.param("about ten years", None, id="words"),
+    ],
+)
+def test_finds_the_first_number(text: str, first: Decimal | None) -> None:
+    assert first_number(text) == first

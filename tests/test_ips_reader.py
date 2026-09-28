@@ -23,7 +23,7 @@ def test_turns_a_grounded_reading_into_the_client_profile_and_its_quotes() -> No
     assert read_ips(DEMO_IPS, "C-1001", reader) == GroundedProfile(
         profile(),
         quotes={
-            "risk_tolerance": "Risk tolerance: 3",
+            "risk_tolerance": "Risk tolerance: 3 on a scale of 1 to 10.",
             "time_horizon_years": "Time horizon: 10 years.",
             "cash_reserve": "keep at least $2,000 in cash at all times",
             "marginal_tax_rate": "the client is in the 24% federal income-tax bracket",
@@ -40,16 +40,31 @@ def test_rejects_a_quote_the_ips_does_not_contain() -> None:
     ]
 
 
-def test_rejects_a_quote_with_more_numbers_than_the_fact() -> None:
-    # Otherwise a reader that took the top of the scale for the score would pass.
-    assert problems_reading(DEMO_IPS, risk_tolerance=10, risk_tolerance_quote=SCALE_QUOTE) == [
-        f"risk_tolerance: the quote must state exactly one number: {SCALE_QUOTE!r}"
+def test_a_scale_in_the_quote_cannot_pass_for_the_score() -> None:
+    assert problems_reading(DEMO_IPS, risk_tolerance=10) == [
+        f"risk_tolerance: the first number in the quote is 3, not 10: {SCALE_QUOTE!r}"
+    ]
+
+
+def test_rejects_a_quote_about_another_fact() -> None:
+    other = "A loss of more than 10% in one year"
+
+    assert problems_reading(DEMO_IPS, risk_tolerance=10, risk_tolerance_quote=other) == [
+        f"risk_tolerance: the quote does not mention risk: {other!r}"
     ]
 
 
 def test_rejects_a_value_its_quote_does_not_state() -> None:
     assert problems_reading(DEMO_IPS, time_horizon_years=15) == [
-        "time_horizon_years: 15 is not what the quote says: 'Time horizon: 10 years.'"
+        "time_horizon_years: the first number in the quote is 10, not 15: 'Time horizon: 10 years.'"
+    ]
+
+
+def test_numbers_written_in_words_do_not_count() -> None:
+    words = "The client plans to retire in about ten years."
+
+    assert problems_reading(DEMO_IPS, time_horizon_quote=words) == [
+        f"time_horizon_years: the quote states no number: {words!r}"
     ]
 
 
@@ -66,7 +81,8 @@ def test_lists_every_fact_the_ips_leaves_out() -> None:
 
 def test_only_the_tax_rate_may_be_quoted_as_a_percent() -> None:
     assert problems_reading(DEMO_IPS, cash_reserve="20") == [
-        "cash_reserve: 20 is not what the quote says: 'keep at least $2,000 in cash at all times'"
+        "cash_reserve: the first number in the quote is 2000, not 20: "
+        "'keep at least $2,000 in cash at all times'"
     ]
 
 
@@ -92,12 +108,12 @@ def test_rejects_a_value_that_is_not_one_number(written: str) -> None:
 
 
 def test_retries_once_listing_the_problems() -> None:
-    reader = FakeReader(faithful_reading(risk_tolerance_quote=SCALE_QUOTE), faithful_reading())
+    reader = FakeReader(faithful_reading(risk_tolerance=10), faithful_reading())
 
     assert read_ips(DEMO_IPS, "C-1001", reader).profile == profile()
     assert reader.messages[1] == (
         f"{IPS_MESSAGE}\n\nYour last reading had these problems:\n"
-        f"- risk_tolerance: the quote must state exactly one number: {SCALE_QUOTE!r}\n"
+        f"- risk_tolerance: the first number in the quote is 3, not 10: {SCALE_QUOTE!r}\n"
         "Read the IPS again and fix them."
     )
 
@@ -105,14 +121,16 @@ def test_retries_once_listing_the_problems() -> None:
 def test_gives_up_when_the_retry_is_still_not_grounded() -> None:
     reader = FakeReader(faithful_reading(time_horizon_years=15))
 
-    with pytest.raises(IpsReadingError, match="15 is not what the quote says"):
+    with pytest.raises(IpsReadingError, match="the first number in the quote is 10, not 15"):
         read_ips(DEMO_IPS, "C-1001", reader)
     assert len(reader.messages) == 2
 
 
 def test_a_grounded_but_invalid_fact_fails_the_profile_rules_without_a_retry() -> None:
     ips = f"{DEMO_IPS}Correction: risk tolerance 11."
-    reader = FakeReader(faithful_reading(risk_tolerance=11, risk_tolerance_quote="tolerance 11"))
+    reader = FakeReader(
+        faithful_reading(risk_tolerance=11, risk_tolerance_quote="risk tolerance 11")
+    )
 
     with pytest.raises(IpsReadingError) as error:
         read_ips(ips, "C-1001", reader)

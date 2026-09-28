@@ -24,8 +24,8 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
   sold lot's basis is split pro rata to the nearest cent (half-even), and estimates are
   federal only. Wash sales are flagged, not silently adjusted.
 - Agents are checked by code, not trusted: `read_ips` accepts a fact only when its verbatim
-  quote is in the IPS and states that value and no other number, and `write_briefing` rejects
-  any number that is not in the formatted facts. Each gets one retry with the problems listed.
+  quote is in the IPS, mentions the fact, and has that value as its first number, and
+  `write_briefing` rejects any number that is not in the formatted facts. Each gets one retry with the problems listed.
   Keep these guards in code; never loosen them to make a model pass.
 - Give the writer every intermediate figure it needs to explain a result (for tax: each result,
   then what netting leaves to tax and at which rate). The number check cannot catch correct
