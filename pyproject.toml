@@ -5,14 +5,19 @@ description = "Governed wealth-advisory agent: Lyzr agents for language, determi
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
     "lyzr-adk>=0.1.12",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
     "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "hypothesis>=6.168.2",
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",

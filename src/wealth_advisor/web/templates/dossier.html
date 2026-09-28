@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% from "_status.html" import status_badge %}
+{% set entry = view.entry %}
+{% set advice = entry.dossier %}
+{% set facts = view.facts %}
+{% block title %}Advice for {{ advice.profile.client_id }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="crumb"><a href="/">Advice runs</a> / record {{ view.record.sequence }}</p>
+    <h1>Rebalance proposal for {{ advice.profile.client_id }}</h1>
+    <p class="lede">As of {{ advice.proposal.as_of }} · recorded {{ view.recorded_at }} ·
+      {{ facts["risk_band"] }} band, risk {{ advice.profile.risk_tolerance }} of 10</p>
+  </div>
+  <div class="badges">
+    {% if advice.suitability.approved %}
+    <span class="badge good"><span aria-hidden="true">✓</span> Passed the suitability gate</span>
+    {% else %}
+    <span class="badge critical"><span aria-hidden="true">✕</span> Blocked by the suitability gate</span>
+    {% endif %}
+    {% if view.replay_problems %}
+    <span class="badge critical"><span aria-hidden="true">✕</span> Replay failed</span>
+    {% else %}
+    <span class="badge good"><span aria-hidden="true">✓</span> Replay re-verified now</span>
+    {% endif %}
+    {{ status_badge(view.status) }}
+  </div>
+</section>
+
+{% if error %}<div class="alert critical" role="alert">{{ error }}</div>{% endif %}
+
+<section class="kpis" aria-label="Summary">
+  <div class="kpi"><span class="kpi-label">Portfolio value</span>
+    <span class="kpi-value">{{ view.portfolio_value_before }}</span></div>
+  <div class="kpi"><span class="kpi-label">Trades</span>
+    <span class="kpi-value">{{ facts["orders"] | length }}</span></div>
+  <div class="kpi"><span class="kpi-label">Estimated tax</span>
+    <span class="kpi-value">{{ facts["tax"]["estimated_tax"] }}</span></div>
+  <div class="kpi"><span class="kpi-label">Cash after trades</span>
+    <span class="kpi-value">{{ facts["cash_after"] }}</span>
+    <span class="kpi-note">reserve {{ facts["cash_reserve"] }}</span></div>
+</section>
+
+<section class="card decision" id="decision">
+  <h2>Adviser decision</h2>
+  {% if view.status.label == "Awaiting decision" %}
+  <form method="post" action="/advice/{{ view.record.hash }}/decision" class="decision-form">
+    <label>Adviser <input name="adviser" required autocomplete="name" placeholder="Your name"></label>
+    <label>Note <input name="note" placeholder="Optional"></label>
+    <div class="actions">
+      {% if advice.suitability.approved %}
+      <button class="button primary" type="submit" name="decision" value="approved">Approve</button>
+      {% endif %}
+      <button class="button" type="submit" name="decision" value="declined">Decline</button>
+    </div>
+  </form>
+  <p class="muted small">Approving re-runs the replay first. The decision is added to the ledger
+    and can't be changed afterwards.</p>
+  {% else %}
+  <p>{{ status_badge(view.status) }} {{ view.status.detail }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Allocation</h2>
+  <figure class="chart">
+    <figcaption class="legend">
+      <span><span class="key dot before" aria-hidden="true"></span>Before</span>
+      <span><span class="key dot after" aria-hidden="true"></span>After</span>
+      <span><span class="key triangle" aria-hidden="true"></span>Target</span>
+      <span><span class="key line cap" aria-hidden="true"></span>Cap</span>
+    </figcaption>
+    <svg viewBox="0 0 {{ view.chart_width }} {{ view.chart_height }}" role="img" aria-labelledby="allocation-title">
+      <title id="allocation-title">Weight of each asset class before and after the trades, with
+        its target and cap. The table below lists every value.</title>
+      {% for tick in view.ticks %}
+      <line class="grid" x1="{{ tick.x }}" x2="{{ tick.x }}" y1="4" y2="{{ view.chart_height - 24 }}"></line>
+      <text class="axis" x="{{ tick.x }}" y="{{ view.chart_height - 8 }}" text-anchor="middle">{{ tick.label }}</text>
+      {% endfor %}
+      {% for row in view.allocation %}
+      <text class="row-label" x="0" y="{{ row.y + 4 }}">{{ row.label }}</text>
+      <line class="connector" x1="{{ row.before_x }}" x2="{{ row.after_x }}" y1="{{ row.y }}" y2="{{ row.y }}"></line>
+      {% if row.cap_x is not none %}
+      <line class="cap" x1="{{ row.cap_x }}" x2="{{ row.cap_x }}" y1="{{ row.y - 15 }}" y2="{{ row.y + 15 }}"><title>{{ row.label }} cap: {{ row.cap }}</title></line>
+      {% endif %}
+      <path class="target" d="M{{ row.target_x - 6 }},{{ row.y - 20 }} h12 l-6,8 z"><title>{{ row.label }} target: {{ row.target }}</title></path>
+      <circle class="before" cx="{{ row.before_x }}" cy="{{ row.y }}" r="5"><title>{{ row.label }} before: {{ row.before }} ({{ row.before_value }})</title></circle>
+      <circle class="after" cx="{{ row.after_x }}" cy="{{ row.y }}" r="6"><title>{{ row.label }} after: {{ row.after }} ({{ row.after_value }})</title></circle>
+      <text class="value" x="{{ row.label_x }}" y="{{ row.y - 10 }}" text-anchor="{{ row.label_anchor }}">{{ row.after }}</text>
+      {% endfor %}
+    </svg>
+  </figure>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th scope="col">Asset class</th><th scope="col" class="num">Before</th>
+          <th scope="col" class="num">After</th><th scope="col" class="num">Target</th>
+          <th scope="col" class="num">Cap</th><th scope="col" class="num">Value after</th></tr>
+      </thead>
+      <tbody>
+        {% for row in view.allocation %}
+        <tr><th scope="row">{{ row.label }}</th><td class="num">{{ row.before }}</td>
+          <td class="num">{{ row.after }}</td><td class="num">{{ row.target }}</td>
+          <td class="num">{{ row.cap }}</td><td class="num">{{ row.after_value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Trades</h2>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th scope="col">Side</th><th scope="col">Security</th><th scope="col" class="num">Shares</th>
+          <th scope="col" class="num">Price</th><th scope="col" class="num">Amount</th><th scope="col">Why</th></tr>
+      </thead>
+      <tbody>
+        {% for order in facts["orders"] %}
+        <tr><td>{{ order["side"] | capitalize }}</td><td>{{ order["symbol"] }}</td>
+          <td class="num">{{ order["shares"] }}</td><td class="num">{{ order["price"] }}</td>
+          <td class="num">{{ order["amount"] }}</td><td>{{ order["reason"] | capitalize }}</td></tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No trades: the portfolio is already on target.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="columns">
+  <section class="card">
+    <h2>Suitability</h2>
+    {% if advice.suitability.approved %}
+    <p><span class="badge good"><span aria-hidden="true">✓</span> Passed</span> The gate replayed
+      the orders on the portfolio and found no rule broken for a {{ facts["risk_band"] }} client.</p>
+    {% else %}
+    <p><span class="badge critical"><span aria-hidden="true">✕</span> Blocked</span> The gate found
+      these rules broken:</p>
+    <ul class="violations">
+      {% for violation in facts["suitability"]["violations"] %}<li>{{ violation }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Tax</h2>
+    <dl class="pairs">
+      <dt>Short-term result</dt><dd>{{ facts["tax"]["short_term_result"] | capitalize }}</dd>
+      <dt>Long-term result</dt><dd>{{ facts["tax"]["long_term_result"] | capitalize }}</dd>
+      <dt>Taxed after netting</dt>
+      <dd>{% for taxed in facts["tax"]["taxed_after_netting"] %}{{ taxed }}{% if not loop.last %}; {% endif %}{% else %}Nothing{% endfor %}</dd>
+      <dt>Net capital loss</dt><dd>{{ facts["tax"]["net_capital_loss"] | capitalize }}</dd>
+      <dt>Estimated tax</dt><dd class="strong">{{ facts["tax"]["estimated_tax"] }}</dd>
+      <dt>Wash sales</dt>
+      <dd>{% for warning in facts["tax"]["wash_sales"] %}{{ warning }}{% if not loop.last %}; {% endif %}{% else %}None flagged{% endfor %}</dd>
+    </dl>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Tax lots sold</h2>
+  <p class="muted small">Highest-cost lots first (HIFO). The cost basis of a partly sold lot is
+    split pro rata to the cent.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr><th scope="col">Security</th><th scope="col">Acquired</th><th scope="col" class="num">Shares</th>
+          <th scope="col" class="num">Cost basis</th><th scope="col" class="num">Proceeds</th>
+          <th scope="col" class="num">Gain</th><th scope="col">Term</th></tr>
+      </thead>
+      <tbody>
+        {% for sale in view.lot_sales %}
+        <tr><td>{{ sale.symbol }}</td><td>{{ sale.acquired_on }}</td><td class="num">{{ sale.shares }}</td>
+          <td class="num">{{ sale.cost_basis }}</td><td class="num">{{ sale.proceeds }}</td>
+          <td class="num">{{ sale.gain }}</td><td>{{ sale.term }}</td></tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">Nothing sold.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Client profile, as the IPS states it</h2>
+  <p class="muted small">Read by the IPS reader agent. Each fact is accepted only because its
+    quote is in the IPS, names the fact, and states the value as its first number.</p>
+  <dl class="facts">
+    {% for fact in view.ips_facts %}
+    <div class="fact"><dt>{{ fact.label }}</dt><dd class="fact-value">{{ fact.value }}</dd>
+      <dd><blockquote>{{ fact.quote }}</blockquote></dd></div>
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Adviser briefing</h2>
+  <p class="muted small">Written by the briefing writer agent from the facts above. Every number
+    in it was checked against those facts before it was accepted.</p>
+  <div class="briefing">{{ advice.briefing }}</div>
+</section>
+
+<section class="card">
+  <h2>Audit trail</h2>
+  {% if view.replay_problems %}
+  <div class="alert critical" role="alert">
+    <p>Replaying this advice now does not reproduce it:</p>
+    <ul>{% for problem in view.replay_problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <dl class="pairs mono-values">
+    <dt>Record</dt><dd>#{{ view.record.sequence }} · {{ view.record.hash }}</dd>
+    <dt>Follows</dt><dd>{{ view.record.previous_hash }}</dd>
+    <dt>Run</dt><dd>{{ entry.run_id }}</dd>
+    <dt>Engine version</dt><dd>{{ entry.engine_version }}</dd>
+    {% if entry.provenance %}
+    <dt>Lyzr session</dt><dd>{{ entry.provenance.session_id }}</dd>
+    <dt>Model</dt><dd>{{ entry.provenance.model }}</dd>
+    <dt>IPS reader</dt><dd>{{ entry.provenance.reader.name }} ({{ entry.provenance.reader.id }})</dd>
+    <dt>Briefing writer</dt><dd>{{ entry.provenance.writer.name }} ({{ entry.provenance.writer.id }})</dd>
+    {% else %}
+    <dt>Lyzr session</dt><dd>Not recorded: this run predates the AIMS trail or used no Lyzr agents</dd>
+    {% endif %}
+  </dl>
+</section>
+{% endblock %}

@@ -30,7 +30,7 @@ with its tests.
 | 6 | Lyzr agents with Safe AI guardrails | Done |
 | 7a | Audit ledger: hash-chained records, replay, adviser decisions | Done |
 | 7b | AIMS: versioned Lyzr agents and a session per advice run | Done |
-| 8 | Adviser UI and deployment | Next |
+| 8 | Adviser console: dossier review, one-click decisions, live audit | Done |
 
 ## How rebalancing works
 
@@ -190,6 +190,31 @@ uv run python scripts/ledger.py approve 37e03aadd162 --adviser YOU   # approve b
 ```
 
 The ledger holds client data, so it is gitignored. It assumes one writer at a time.
+
+## Adviser console
+
+```bash
+uv run python scripts/console.py   # then open http://127.0.0.1:8000
+```
+
+A web console over the ledger (`web/`): server-rendered pages and no JavaScript.
+
+- **Advice runs** lists every run with its gate verdict, estimated tax, decision and Lyzr
+  session, under a live ledger-integrity badge. With `LYZR_API_KEY` set, **Run advice**
+  advises the demo client through the Lyzr agents and records the run.
+- **The dossier** is what an adviser reviews before deciding. It shows the allocation before
+  and after the trades against target and cap, as a chart with a table view, and the trades
+  and why. It also shows the gate's verdict, the tax calculation step by step with the lots
+  sold, each IPS fact next to the quote behind it, the agents' briefing, and the audit trail
+  with the run's Lyzr session and agents. The replay runs again every time the page loads.
+- **One-click decisions.** Approve or decline with your name and an optional note, and the
+  ledger records it. Approving re-runs the replay first, each run is decided once, and
+  advice the gate blocked can only be declined.
+- **Audit** verifies the whole ledger live, and checks it against a head hash published
+  earlier.
+
+Text from the IPS and the agents is escaped before it reaches the page. The console listens
+on this computer only and has no login, so add authentication before serving it on a network.
 
 ## Quickstart
 

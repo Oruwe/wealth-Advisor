@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Audit{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Audit</h1>
+    <p class="lede">Checks the whole ledger now: every record's hash and its link to the record
+      before it, the ledger's rules, and a replay of every advice run without calling a model.</p>
+  </div>
+  {% if problems %}
+  <span class="integrity critical"><span class="icon" aria-hidden="true">✕</span> Fails verification</span>
+  {% else %}
+  <span class="integrity good"><span class="icon" aria-hidden="true">✓</span> Intact · {{ count }} records</span>
+  {% endif %}
+</section>
+
+{% if problems %}
+<section class="card">
+  <h2>Problems</h2>
+  <ul class="violations">{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+</section>
+{% else %}
+<section class="card">
+  <h2>Everything checks out</h2>
+  <p>All {{ count }} records are unaltered and in order, every decision follows the ledger's
+    rules, and every advice run replays exactly.</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Head hash</h2>
+  <p class="muted small">Publish this hash somewhere outside the ledger. A ledger that was cut
+    short no longer ends here, which the chain alone can't show.</p>
+  <p class="mono">{{ head or "The ledger is empty" }}</p>
+  <form method="get" action="/audit" class="inline-form">
+    <label>Check against a published head
+      <input name="head" value="{{ published_head }}" placeholder="64 hex characters" class="mono"></label>
+    <button class="button" type="submit">Check</button>
+  </form>
+</section>
+{% endblock %}

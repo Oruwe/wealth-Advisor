@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Adviser console{% endblock %} · Wealth Advisor</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='console.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Wealth Advisor <span>Adviser console</span></a>
+    <nav aria-label="Main">
+      <a href="/">Advice runs</a>
+      <a href="/audit">Audit</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    Every number comes from tested, deterministic code. The Lyzr agents only read the IPS and
+    write the briefing, and every advice run and decision is kept in a tamper-evident ledger.
+  </footer>
+</body>
+</html>

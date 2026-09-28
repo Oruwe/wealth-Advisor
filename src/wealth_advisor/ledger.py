@@ -119,7 +119,7 @@ class Ledger:
         entry = DecisionEntry(
             advice_hash=advice_hash, decision=decision, adviser_id=adviser_id, note=note
         )
-        advice = {record.hash: record.entry for record in self.records()}.get(advice_hash)
+        advice = {record.hash: record.entry for record in self._intact_records()}.get(advice_hash)
         if (
             decision is Decision.APPROVED
             and isinstance(advice, AdviceEntry)
@@ -151,11 +151,15 @@ class Ledger:
                 problems += [f"record {record.sequence}: {p}" for p in replay(record.entry)]
         return problems
 
-    def _append(self, entry: AdviceEntry | DecisionEntry, recorded_at: datetime) -> LedgerRecord:
+    def _intact_records(self) -> list[LedgerRecord]:
+        """The records, if the chain holds; nothing is added to a ledger that fails it."""
         lines = self._lines()
         if problems := _chain_problems(lines):
             raise LedgerError(problems)
-        records = [LedgerRecord.model_validate_json(line) for line in lines]
+        return [LedgerRecord.model_validate_json(line) for line in lines]
+
+    def _append(self, entry: AdviceEntry | DecisionEntry, recorded_at: datetime) -> LedgerRecord:
+        records = self._intact_records()
         unsealed = LedgerRecord(
             sequence=len(records),
             recorded_at=recorded_at,

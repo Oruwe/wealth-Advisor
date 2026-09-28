@@ -1,0 +1,9 @@
+{% macro status_badge(status) -%}
+{% if status.tone == "good" -%}
+<span class="badge good"><span aria-hidden="true">✓</span> {{ status.label }}</span>
+{%- elif status.tone == "warning" -%}
+<span class="badge warning"><span aria-hidden="true">!</span> {{ status.label }}</span>
+{%- else -%}
+<span class="badge neutral"><span aria-hidden="true">–</span> {{ status.label }}</span>
+{%- endif %}
+{%- endmacro %}

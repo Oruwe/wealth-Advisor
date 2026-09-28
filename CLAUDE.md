@@ -43,6 +43,9 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
   Recording advice requires a clean replay, and approving re-runs it.
 - Changing the rebalancer, gate, tax engine or briefing facts changes what old records replay
   to, so bump the package version: each advice record names the engine version that made it.
+- The console (`web/`) renders on the server with Jinja autoescaping on; never mark IPS or
+  agent text as safe. It gets the ledger, clock and advice runner passed in and never imports
+  Lyzr itself (the live runner is `web/runner.py`), so its tests use fakes.
 - Secrets live in `Settings` as `SecretStr` and are never logged or serialised.
 - Build one step per PR (roadmap in README.md). Every step ships with tests, and all quality
   gates must pass before pushing.
@@ -56,3 +59,4 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
 - `uv run python scripts/lyzr_smoke.py`: advise the demo client through live Lyzr agents
   (needs `LYZR_API_KEY` in `.env`)
 - `uv run python scripts/ledger.py verify`: check the audit ledger's chain, rules and replays
+- `uv run python scripts/console.py`: the adviser console at http://127.0.0.1:8000
