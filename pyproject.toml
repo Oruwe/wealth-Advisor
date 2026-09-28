@@ -11,6 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.2",
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
@@ -64,6 +65,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest]
 minversion = "9.0"
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = ["-ra", "--import-mode=importlib"]
 strict = true
 filterwarnings = ["error"]
