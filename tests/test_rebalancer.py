@@ -1,78 +1,21 @@
-from datetime import date
 from decimal import Decimal, localcontext
 
 import pytest
+from examples import AS_OF, BND, CONSERVATIVE, GLD, TSLA, VTI, holding, order, profile
 from hypothesis import given
 from strategies import MODEL_SYMBOLS, RebalanceCase, rebalance_cases
 
-from wealth_advisor.domain.client import ClientProfile
 from wealth_advisor.domain.market import PriceSnapshot
-from wealth_advisor.domain.orders import Order, RebalanceProposal, Side
+from wealth_advisor.domain.orders import RebalanceProposal, Side
 from wealth_advisor.domain.portfolio import (
     AssetClass,
-    Holding,
     Portfolio,
     Security,
     TargetAllocation,
-    TaxLot,
 )
-from wealth_advisor.policy.model_portfolio import MODEL_SECURITIES, TARGET_BY_RISK
+from wealth_advisor.policy.model_portfolio import MODEL_SECURITIES
+from wealth_advisor.policy.suitability import SUITABILITY_POLICY
 from wealth_advisor.rebalancer import RebalanceError, propose_rebalance, rebalance
-
-AS_OF = date(2026, 9, 25)
-CONSERVATIVE = TARGET_BY_RISK[3]  # 20% equity, 65% fixed income, 5% commodity, 10% cash
-VTI = MODEL_SECURITIES[AssetClass.EQUITY]
-BND = MODEL_SECURITIES[AssetClass.FIXED_INCOME]
-GLD = MODEL_SECURITIES[AssetClass.COMMODITY]
-TSLA = Security(symbol="TSLA", asset_class=AssetClass.EQUITY)
-
-
-def holding(security: Security, quantity: str, acquired_on: date = AS_OF) -> Holding:
-    lot = TaxLot(quantity=Decimal(quantity), cost_basis=Decimal(0), acquired_on=acquired_on)
-    return Holding(security=security, lots=(lot,))
-
-
-def order(side: Side, security: Security, quantity: str, price: str) -> Order:
-    return Order(side=side, security=security, quantity=Decimal(quantity), price=Decimal(price))
-
-
-def profile(client_id: str = "C-1001") -> ClientProfile:
-    return ClientProfile(
-        client_id=client_id,
-        risk_tolerance=3,
-        time_horizon_years=10,
-        cash_reserve=Decimal("2000.00"),
-        marginal_tax_rate=Decimal("0.24"),
-    )
-
-
-@pytest.fixture
-def portfolio() -> Portfolio:
-    """$100k: $5k cash, $25k TSLA (outside the model), $30k VTI, $35k BND, $5k GLD."""
-    return Portfolio(
-        client_id="C-1001",
-        as_of=AS_OF,
-        cash=Decimal("5000.00"),
-        holdings=(
-            holding(TSLA, "100"),
-            holding(VTI, "100"),
-            holding(BND, "500"),
-            holding(GLD, "25"),
-        ),
-    )
-
-
-@pytest.fixture
-def prices() -> PriceSnapshot:
-    return PriceSnapshot(
-        as_of=AS_OF,
-        prices={
-            "TSLA": Decimal("250"),
-            "VTI": Decimal("300"),
-            "BND": Decimal("70"),
-            "GLD": Decimal("200"),
-        },
-    )
 
 
 def test_exits_holdings_outside_the_model_and_trades_the_rest_to_target(
@@ -151,12 +94,47 @@ def test_refuses_a_holding_classified_differently_from_the_model(prices: PriceSn
         rebalance(mislabelled, prices, CONSERVATIVE, cash_reserve=Decimal(0))
 
 
-def test_proposal_uses_the_target_for_the_clients_risk_score(
+def test_proposal_uses_the_target_and_caps_for_the_clients_risk_score(
     portfolio: Portfolio, prices: PriceSnapshot
 ) -> None:
     assert propose_rebalance(profile(), portfolio, prices) == rebalance(
-        portfolio, prices, CONSERVATIVE, cash_reserve=Decimal("2000.00")
+        portfolio,
+        prices,
+        CONSERVATIVE,
+        cash_reserve=Decimal("2000.00"),
+        max_weight=SUITABILITY_POLICY.band_for(3).max_weight,
     )
+
+
+def test_rounds_down_when_rounding_up_would_break_a_cap(
+    portfolio: Portfolio, prices: PriceSnapshot
+) -> None:
+    proposal = rebalance(
+        portfolio,
+        prices,
+        CONSERVATIVE,
+        cash_reserve=Decimal("2000.00"),
+        max_weight={AssetClass.EQUITY: Decimal("0.20")},
+    )
+
+    # Without the cap it sells 33 VTI and lands on $20,100 of equity: 20.1%.
+    assert proposal.orders == (
+        order(Side.SELL, TSLA, "100", "250"),
+        order(Side.SELL, VTI, "34", "300"),
+        order(Side.BUY, BND, "429", "70"),
+    )
+    assert proposal.value_after[AssetClass.EQUITY] == Decimal("19800")
+
+
+def test_refuses_a_target_above_its_cap(portfolio: Portfolio, prices: PriceSnapshot) -> None:
+    with pytest.raises(RebalanceError, match=r"target equity weight 0\.20 exceeds its cap 0\.15"):
+        rebalance(
+            portfolio,
+            prices,
+            CONSERVATIVE,
+            cash_reserve=Decimal(0),
+            max_weight={AssetClass.EQUITY: Decimal("0.15")},
+        )
 
 
 def test_refuses_a_profile_for_a_different_client(
