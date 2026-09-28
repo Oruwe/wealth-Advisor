@@ -23,6 +23,14 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
 - Tax: sales relieve the highest-cost lots first (HIFO; ties go to the older lot), a partly
   sold lot's basis is split pro rata to the nearest cent (half-even), and estimates are
   federal only. Wash sales are flagged, not silently adjusted.
+- Agents are checked by code, not trusted: `read_ips` accepts a fact only when its verbatim
+  quote is in the IPS and states that value and no other number, and `write_briefing` rejects
+  any number that is not in the formatted facts. Each gets one retry with the problems listed.
+  Keep these guards in code; never loosen them to make a model pass.
+- Untrusted text (an IPS) goes to an agent fenced in tags, and the agent is told it is data.
+- Tests and CI never call Lyzr: use the fakes in `tests/fakes.py`. `scripts/lyzr_smoke.py` is
+  the only live path. The demo client (C-1001, $100k) lives in `wealth_advisor/demo.py`.
+- Warnings are errors in tests; the one exception is lyzr-adk's own Pydantic deprecations.
 - Secrets live in `Settings` as `SecretStr` and are never logged or serialised.
 - Build one step per PR (roadmap in README.md). Every step ships with tests, and all quality
   gates must pass before pushing.
@@ -31,5 +39,7 @@ Governed wealth-advisory agent (HiDevs × Lyzr AI Quest, problem #05). Python 3.
 
 - `uv sync`: install
 - `uv run ruff check --fix && uv run ruff format`: lint and format
-- `uv run mypy`: strict type check of `src/` and `tests/`
+- `uv run mypy`: strict type check of `src/`, `tests/` and `scripts/`
 - `uv run pytest --cov`: tests with the 90% branch-coverage gate
+- `uv run python scripts/lyzr_smoke.py`: advise the demo client through live Lyzr agents
+  (needs `LYZR_API_KEY` in `.env`)

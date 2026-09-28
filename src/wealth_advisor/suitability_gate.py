@@ -8,6 +8,7 @@ from wealth_advisor.domain.orders import RebalanceProposal, Side
 from wealth_advisor.domain.portfolio import AssetClass, Portfolio, Security
 from wealth_advisor.domain.primitives import EXACT_CONTEXT
 from wealth_advisor.domain.suitability import Rule, SuitabilityReport, Violation
+from wealth_advisor.formatting import dollars, percent
 from wealth_advisor.policy.suitability import SUITABILITY_POLICY, SuitabilityPolicy
 
 
@@ -106,18 +107,18 @@ def _violations(
     band = policy.band_for(profile.risk_tolerance)
     for asset_class, cap in band.max_weight.items():
         if total > 0 and values[asset_class] > cap * total:
-            share = _percent(Fraction(values[asset_class]) / Fraction(total))
+            share = percent(Fraction(values[asset_class]) / Fraction(total))
             yield Violation(
                 rule=Rule.MAX_WEIGHT,
                 detail=f"{asset_class} would be {share} of the portfolio; "
-                f"{band.name} clients may hold at most {_percent(Fraction(cap))}",
+                f"{band.name} clients may hold at most {percent(Fraction(cap))}",
             )
 
     if cash < profile.cash_reserve:
         yield Violation(
             rule=Rule.CASH_RESERVE,
-            detail=f"cash would be {_dollars(cash)} after the trades; "
-            f"the IPS requires at least {_dollars(profile.cash_reserve)}",
+            detail=f"cash would be {dollars(cash)} after the trades; "
+            f"the IPS requires at least {dollars(profile.cash_reserve)}",
         )
 
 
@@ -129,12 +130,3 @@ def _values(
     for security, quantity in quantities.items():
         values[security.asset_class] += quantity * unit_prices[security]
     return values
-
-
-def _percent(fraction: Fraction) -> str:
-    basis_points = round(fraction * 10_000)
-    return f"{basis_points // 100}.{basis_points % 100:02d}%"
-
-
-def _dollars(amount: Decimal) -> str:
-    return f"-${-amount:,.2f}" if amount < 0 else f"${amount:,.2f}"

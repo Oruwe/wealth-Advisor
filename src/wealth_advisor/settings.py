@@ -13,3 +13,4 @@ class Settings(BaseSettings):
     )
 
     lyzr_api_key: SecretStr = Field(min_length=1)
+    lyzr_model: str = Field(default="openai/gpt-4.1", min_length=1)
