@@ -12,6 +12,7 @@ from wealth_advisor.domain.tax import TaxImpact
 from wealth_advisor.formatting import dollars, percent
 from wealth_advisor.policy.model_portfolio import MODEL_SECURITIES
 from wealth_advisor.policy.suitability import SUITABILITY_POLICY, SuitabilityPolicy
+from wealth_advisor.tax import net_capital_gains
 
 ROLE = "Adviser briefing writer"
 GOAL = "Explain a rebalancing proposal to a registered investment adviser from the facts given."
@@ -27,7 +28,9 @@ Cover, in this order:
 - Trades: what is sold and bought, and why.
 - Suitability: how the result fits the client's IPS, comparing weights with their caps and
   cash with the reserve.
-- Tax: the estimated tax, the gains and losses behind it, and any wash-sale warning.
+- Tax: the estimated tax and how it arises. Losses offset gains before any tax applies, so
+  explain it as the short- and long-term results, then what is left to tax after netting
+  (taxed_after_netting, each at its own rate), then any net capital loss or wash-sale warning.
 Write plain, factual sentences for a professional reader, and never promise returns.
 """
 
@@ -50,6 +53,7 @@ def briefing_facts(
     """Everything the writer may say, with every number already formatted."""
     total = sum(proposal.value_after.values(), start=Decimal(0))
     band = policy.band_for(profile.risk_tolerance)
+    netted = net_capital_gains(tax.short_term_gain, tax.long_term_gain)
     model = set(MODEL_SECURITIES.values())
     return {
         "client_id": profile.client_id,
@@ -90,11 +94,17 @@ def briefing_facts(
         "cash_reserve": dollars(profile.cash_reserve),
         "tax": {
             "estimated_tax": dollars(tax.estimated_tax),
-            "short_term_gain": dollars(tax.short_term_gain),
-            "long_term_gain": dollars(tax.long_term_gain),
-            "net_capital_loss": dollars(tax.net_capital_loss),
-            "short_term_rate": percent(Fraction(tax.short_term_rate)),
-            "long_term_rate": percent(Fraction(tax.long_term_rate)),
+            "short_term_result": _result(tax.short_term_gain),
+            "long_term_result": _result(tax.long_term_gain),
+            "taxed_after_netting": [
+                f"{dollars(amount)} of net {term} gain at {percent(Fraction(rate))}"
+                for term, amount, rate in (
+                    ("short-term", netted.short_term, tax.short_term_rate),
+                    ("long-term", netted.long_term, tax.long_term_rate),
+                )
+                if amount > 0
+            ],
+            "net_capital_loss": dollars(netted.loss) if netted.loss else "none",
             "wash_sales": [
                 f"{w.symbol}: {dollars(w.loss_at_risk)} of losses at risk; {w.reason}"
                 for w in tax.wash_sales
@@ -120,6 +130,12 @@ def write_briefing(facts: dict[str, object], writer: WriterAgent, attempts: int 
             f"the facts: {', '.join(stray)}. Rewrite it using only numbers copied from the facts."
         )
     raise BriefingError(f"the briefing uses numbers that are not in the facts: {', '.join(stray)}")
+
+
+def _result(gain: Decimal) -> str:
+    if gain > 0:
+        return f"gain of {dollars(gain)}"
+    return f"loss of {dollars(-gain)}" if gain < 0 else "none"
 
 
 def _share(value: Decimal, total: Decimal) -> Fraction:
