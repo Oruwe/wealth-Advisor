@@ -26,8 +26,8 @@ with its tests.
 | 2 | Domain models: client profile (IPS), holdings, asset classes | Done |
 | 3 | Deterministic rebalancer | Done |
 | 4 | Suitability gate: policy rules that block unsuitable trades | Done |
-| 5 | Tax-lot engine | Next |
-| 6 | Lyzr agents with Safe AI guardrails | Planned |
+| 5 | Tax-lot engine | Done |
+| 6 | Lyzr agents with Safe AI guardrails | Next |
 | 7 | Audit ledger and AIMS | Planned |
 | 8 | Adviser UI and deployment | Planned |
 
@@ -71,6 +71,28 @@ an incomplete rule set stops the app from starting.
 A blocked proposal gets a report naming every rule it breaks, in words an adviser can
 read. The rebalancer respects the same caps, and a property test checks that every
 proposal it makes, for any portfolio and any risk score, passes the gate.
+
+## Tax impact
+
+`estimate_tax` (`tax.py`) turns a proposal's sales into specific-lot instructions and an
+estimated federal tax bill:
+
+- **Lots**: each sale relieves the highest-cost lots first (HIFO), which usually realises
+  the least gain; on a tie, the older lot goes first. A partly sold lot's cost basis is
+  split pro rata and rounded to the nearest cent.
+- **Holding period**: a lot is long-term only if sold after the first anniversary of its
+  purchase.
+- **Netting**: short- and long-term results are netted the way Schedule D nets them.
+  Short-term gains are taxed at the client's marginal rate, and long-term gains at 0%, 15%
+  or 20% depending on that rate. A net loss is reported, never turned into a refund.
+- **Wash sales**: a loss is flagged, with the amount at risk, when shares of the same
+  security bought in the last 30 days are still held, or when the same orders buy it.
+
+For the $100k example, selling TSLA and VTI realises $4,600 of long-term gains and $2,300
+of short-term losses; after netting, $2,300 is taxed at 15%, about $345.
+
+Estimates exclude state tax and the 3.8% net investment income tax, and the long-term rate
+is approximated from the marginal rate (the real breakpoints are income levels).
 
 ## Quickstart
 
