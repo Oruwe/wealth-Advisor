@@ -1,6 +1,10 @@
+import hashlib
+import json
 from collections import Counter
+from collections.abc import Mapping
 from importlib.resources import files
-from typing import Annotated, Self
+from types import MappingProxyType
+from typing import Annotated, Any, Self
 
 import yaml
 from pydantic import Field, field_validator, model_validator
@@ -14,7 +18,9 @@ RiskScore = Annotated[int, Field(ge=1, le=10)]
 class RiskBand(DomainModel):
     name: str = Field(min_length=1)
     risk_scores: frozenset[RiskScore] = Field(min_length=1)
-    max_weight: dict[AssetClass, Weight]
+    # Typed as Mapping (read-only view); after validation the dict is wrapped in MappingProxyType.
+    max_weight: Mapping[AssetClass, Weight]
+    min_weight: Mapping[AssetClass, Weight] = Field(default_factory=dict)
 
     @field_validator("max_weight")
     @classmethod
@@ -22,6 +28,16 @@ class RiskBand(DomainModel):
         if AssetClass.CASH in caps:
             raise ValueError("cash cannot be capped; the IPS cash reserve sets its floor")
         return caps
+
+    @model_validator(mode="after")
+    def _freeze_weights(self) -> Self:
+        # Replace the plain dicts Pydantic stored with immutable MappingProxyType so that
+        # the frozen model is truly immutable (not just preventing attribute re-assignment).
+        if not isinstance(self.max_weight, MappingProxyType):
+            object.__setattr__(self, "max_weight", MappingProxyType(dict(self.max_weight)))
+        if not isinstance(self.min_weight, MappingProxyType):
+            object.__setattr__(self, "min_weight", MappingProxyType(dict(self.min_weight)))
+        return self
 
 
 class SuitabilityPolicy(DomainModel):
@@ -39,9 +55,27 @@ class SuitabilityPolicy(DomainModel):
     def band_for(self, risk_score: int) -> RiskBand:
         return next(band for band in self.risk_bands if risk_score in band.risk_scores)
 
+    @property
+    def policy_hash(self) -> str:
+        """SHA-256 of the canonical serialised policy; stable across Python restarts."""
+        data: dict[str, Any] = self.model_dump(mode="json")
+        # frozenset serialises to a list whose order is non-deterministic; sort for stability.
+        if isinstance(data.get("approved_securities"), list):
+            data["approved_securities"] = sorted(data["approved_securities"])
+        for band in data.get("risk_bands", []):
+            if isinstance(band.get("risk_scores"), list):
+                band["risk_scores"] = sorted(band["risk_scores"])
+        canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        return hashlib.sha256(canonical.encode()).hexdigest()
+
 
 def parse_policy(text: str) -> SuitabilityPolicy:
-    return SuitabilityPolicy.model_validate(yaml.safe_load(text))
+    data = yaml.safe_load(text)
+    # YAML 1.1 parses bare "ON/OFF/YES/NO" as booleans; coerce approved_securities
+    # to strings so tickers like "ON" (ON Semiconductor) are not silently misread.
+    if isinstance(data, dict) and isinstance(data.get("approved_securities"), list):
+        data["approved_securities"] = [str(s) for s in data["approved_securities"]]
+    return SuitabilityPolicy.model_validate(data)
 
 
 SUITABILITY_POLICY = parse_policy(

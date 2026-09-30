@@ -4,10 +4,16 @@ import pytest
 from examples import profile
 from fakes import FakeReader, faithful_reading
 
-from wealth_advisor.agents.ips_reader import GroundedProfile, IpsReadingError, read_ips
+from wealth_advisor.agents.ips_reader import (
+    GroundedProfile,
+    IpsReadingError,
+    _IPS_END,
+    _IPS_START,
+    read_ips,
+)
 from wealth_advisor.demo import DEMO_IPS
 
-IPS_MESSAGE = f"<ips>\n{DEMO_IPS}\n</ips>"
+IPS_MESSAGE = f"{_IPS_START}\n{DEMO_IPS}\n{_IPS_END}"
 SCALE_QUOTE = "Risk tolerance: 3 on a scale of 1 to 10."
 
 
@@ -124,6 +130,15 @@ def test_gives_up_when_the_retry_is_still_not_grounded() -> None:
     with pytest.raises(IpsReadingError, match="the first number in the quote is 10, not 15"):
         read_ips(DEMO_IPS, "C-1001", reader)
     assert len(reader.messages) == 2
+
+
+def test_rejects_a_quote_whose_first_number_has_a_minus_sign() -> None:
+    negative_quote = "risk tolerance is marked as -3 here"
+    ips = f"{DEMO_IPS} Note: {negative_quote}."
+
+    assert problems_reading(ips, risk_tolerance_quote=negative_quote) == [
+        f"risk_tolerance: the first number in the quote is -3, not 3: {negative_quote!r}"
+    ]
 
 
 def test_a_grounded_but_invalid_fact_fails_the_profile_rules_without_a_retry() -> None:

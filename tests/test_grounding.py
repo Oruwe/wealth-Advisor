@@ -5,6 +5,7 @@ import pytest
 
 from wealth_advisor.agents.grounding import (
     first_number,
+    first_signed_number,
     normalise,
     numbers_in,
     unsupported_numbers,
@@ -65,3 +66,24 @@ def test_skips_list_markers_only_at_the_start_of_a_line() -> None:
 )
 def test_finds_the_first_number(text: str, first: Decimal | None) -> None:
     assert first_number(text) == first
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("Risk tolerance: 7", Decimal(7), id="positive-no-sign"),
+        pytest.param("score is -7", Decimal(-7), id="minus-before-digit"),
+        pytest.param("loss of -$2,300.00", Decimal(-2300), id="minus-before-dollar"),
+        pytest.param("balance: -$25k", Decimal(-25_000), id="minus-dollar-suffix"),
+        pytest.param("about ten years", None, id="spelled-out-word-is-none"),
+        pytest.param("value $7", Decimal(7), id="dollar-no-minus-is-positive"),
+    ],
+)
+def test_first_signed_number_respects_minus_sign(text: str, expected: Decimal | None) -> None:
+    assert first_signed_number(text) == expected
+
+
+def test_sign_mismatch_means_negative_quote_does_not_match_positive_value() -> None:
+    # A quote that says "-3" cannot prove that the value is +3.
+    assert first_signed_number("risk tolerance: -3 on a scale") == Decimal(-3)
+    assert first_signed_number("risk tolerance: -3 on a scale") != Decimal(3)

@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from decimal import Decimal, localcontext
 from fractions import Fraction
+from types import MappingProxyType
 
 from wealth_advisor.domain.client import ClientProfile
 from wealth_advisor.domain.market import PriceSnapshot
@@ -9,7 +10,24 @@ from wealth_advisor.domain.portfolio import AssetClass, Portfolio, Security
 from wealth_advisor.domain.primitives import EXACT_CONTEXT
 from wealth_advisor.domain.suitability import Rule, SuitabilityReport, Violation
 from wealth_advisor.formatting import dollars, percent
+from wealth_advisor.policy.model_portfolio import MODEL_SECURITIES
 from wealth_advisor.policy.suitability import SUITABILITY_POLICY, SuitabilityPolicy
+
+
+class ComplianceError(ValueError):
+    """Raised when a proposal contains a symbol not in the trusted security registry.
+
+    Unlike a Violation (which accumulates and is reviewed), a ComplianceError aborts
+    gate evaluation immediately because the asset class cannot be reliably determined.
+    """
+
+
+# Trusted symbol → asset-class mapping derived solely from the policy model.
+# The gate uses this instead of trusting the asset_class embedded in each Order,
+# which an adversary could set to a wrong value to bypass max-weight checks.
+_SYMBOL_ASSET_CLASS: MappingProxyType[str, AssetClass] = MappingProxyType(
+    {security.symbol: security.asset_class for security in MODEL_SECURITIES.values()}
+)
 
 
 def check_suitability(
@@ -20,7 +38,10 @@ def check_suitability(
     policy: SuitabilityPolicy = SUITABILITY_POLICY,
 ) -> SuitabilityReport:
     """Replay the proposal's orders on the portfolio and check the result against the client's IPS
-    and the policy. The figures the proposal reports about itself are verified, never trusted."""
+    and the policy. The figures the proposal reports about itself are verified, never trusted.
+
+    Raises ComplianceError if any order touches a symbol absent from the trusted registry.
+    """
     with localcontext(EXACT_CONTEXT):
         violations = tuple(_violations(profile, portfolio, prices, proposal, policy))
     return SuitabilityReport(
@@ -54,6 +75,13 @@ def _violations(
     bought_unapproved: set[str] = set()
     for order in proposal.orders:
         symbol = order.security.symbol
+        # Validate symbol against trusted registry before processing — raise, don't yield,
+        # because we cannot safely compute asset-class weights without a known class.
+        if symbol not in _SYMBOL_ASSET_CLASS:
+            raise ComplianceError(
+                f"{symbol} is not in the trusted symbol registry; "
+                "add it to policy/model_portfolio.py before trading"
+            )
         snapshot_price = prices.prices.get(symbol)
         if snapshot_price is None:
             yield Violation(
@@ -105,6 +133,7 @@ def _violations(
 
     total = sum(values.values(), start=Decimal(0))
     band = policy.band_for(profile.risk_tolerance)
+
     for asset_class, cap in band.max_weight.items():
         if total > 0 and values[asset_class] > cap * total:
             share = percent(Fraction(values[asset_class]) / Fraction(total))
@@ -112,6 +141,15 @@ def _violations(
                 rule=Rule.MAX_WEIGHT,
                 detail=f"{asset_class} would be {share} of the portfolio; "
                 f"{band.name} clients may hold at most {percent(Fraction(cap))}",
+            )
+
+    for asset_class, floor in band.min_weight.items():
+        if total > 0 and values[asset_class] < floor * total:
+            share = percent(Fraction(values[asset_class]) / Fraction(total))
+            yield Violation(
+                rule=Rule.MAX_WEIGHT,
+                detail=f"{asset_class} would be {share} of the portfolio; "
+                f"{band.name} clients must hold at least {percent(Fraction(floor))}",
             )
 
     if cash < profile.cash_reserve:
@@ -128,5 +166,8 @@ def _values(
     values = dict.fromkeys(AssetClass, Decimal(0))
     values[AssetClass.CASH] += cash
     for security, quantity in quantities.items():
-        values[security.asset_class] += quantity * unit_prices[security]
+        # Use the trusted registry for asset-class lookup; fall back to security.asset_class
+        # only for symbols that were already flagged as unknown in _violations().
+        trusted_class = _SYMBOL_ASSET_CLASS.get(security.symbol, security.asset_class)
+        values[trusted_class] += quantity * unit_prices[security]
     return values

@@ -3,11 +3,14 @@ from decimal import Decimal
 from unicodedata import lookup
 
 # A whole part (optional before a decimal point, as in ".5"), a fraction, and a scale word.
+# Sign-agnostic: use first_signed_number when sign context matters.
 _NUMBER = re.compile(
     r"(?<!\w)(\d{1,3}(?:,\d{3})+|\d+|(?=\.\d))(\.\d+)?(?:\s*(k|thousand|m|million))?\b",
     re.IGNORECASE,
 )
 _SCALE = {"k": 1_000, "thousand": 1_000, "m": 1_000_000, "million": 1_000_000}
+# Matches a minus sign immediately before the digit sequence, possibly separated by $ or spaces.
+_PRECEDING_MINUS = re.compile(r"-\s*\$?\s*$")
 _TYPOGRAPHY = str.maketrans(
     {
         lookup("LEFT SINGLE QUOTATION MARK"): "'",
@@ -32,6 +35,21 @@ def first_number(text: str) -> Decimal | None:
     """The first number in the text, read the same way as `numbers_in`."""
     match = _NUMBER.search(text)
     return _value(match) if match else None
+
+
+def first_signed_number(text: str) -> Decimal | None:
+    """The first digit-number in the text, respecting a preceding minus sign.
+
+    A literal ``-`` immediately before the digits (possibly separated by a currency symbol or
+    whitespace) causes a negative value to be returned, so a quote containing "-7" cannot
+    match the value 7.  Spelled-out numbers ("ten") return None, the same as `first_number`.
+    """
+    match = _NUMBER.search(text)
+    if match is None:
+        return None
+    value = _value(match)
+    prefix = text[: match.start()]
+    return -value if _PRECEDING_MINUS.search(prefix) else value
 
 
 def unsupported_numbers(text: str, allowed: set[Decimal]) -> list[str]:

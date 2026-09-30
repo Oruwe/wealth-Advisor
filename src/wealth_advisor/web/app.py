@@ -6,7 +6,7 @@ in, so the console never talks to Lyzr itself and tests can run it with fakes.
 
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -21,6 +21,7 @@ except ImportError:
     pass
 
 from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -45,6 +46,7 @@ try:
 except ImportError:
     _APSCHEDULER_AVAILABLE = False
 from wealth_advisor.engine.ledger import AuditBlock, FiduciaryLedger
+from wealth_advisor.policy.suitability import SUITABILITY_POLICY as _SUITABILITY_POLICY
 from wealth_advisor.engine.market_data import MarketDataFeed, RiskEstimator
 from wealth_advisor.engine.pipeline import FiduciaryPipeline
 from wealth_advisor.engine.ingestion import parse_brokerage_csv
@@ -151,6 +153,7 @@ def _record_fiduciary_block(
             },
             trades=trades,
             broker_receipt=broker_receipt,
+            policy_hash=_SUITABILITY_POLICY.policy_hash,
         )
         _audit_blocks[advice_hash] = block
     except Exception as exc:
@@ -390,6 +393,29 @@ def create_app(
         openapi_url=None,
         lifespan=_lifespan,
     )
+
+    _ALLOWED_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+
+    # DNS-rebinding guard: reject requests with an unexpected Host header.
+    _ALLOWED_HOSTS = {"localhost:8000", "127.0.0.1:8000", "testserver"}
+
+    @app.middleware("http")
+    async def _check_host(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        host = request.headers.get("host", "")
+        if host not in _ALLOWED_HOSTS:
+            return Response(content=b"Invalid Host header", status_code=400)
+        return await call_next(request)
+
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(api.router)
 

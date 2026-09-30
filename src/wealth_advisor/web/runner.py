@@ -12,6 +12,7 @@ from wealth_advisor.agents.lyzr_runtime import AgentDriftError, AgentOutputError
 from wealth_advisor.demo import DEMO_IPS, demo_portfolio, demo_prices
 from wealth_advisor.ledger import AdviceInputs
 from wealth_advisor.settings import Settings
+from wealth_advisor.suitability_gate import ComplianceError
 from wealth_advisor.web.app import AdviceRun, AdviceRunError, Runner
 
 
@@ -28,6 +29,10 @@ def lyzr_demo_runner(settings: Settings, studio_factory: Callable[..., Studio] =
             raise AdviceRunError(
                 f"could not complete the Lyzr calls ({error}); check the internet connection "
                 "and LYZR_API_KEY"
+            ) from error
+        except ComplianceError as error:
+            raise AdviceRunError(
+                f"Suitability gate blocked the proposal: {error}"
             ) from error
         except (IpsReadingError, BriefingError, AgentDriftError, AgentOutputError) as error:
             raise AdviceRunError(str(error)) from error
