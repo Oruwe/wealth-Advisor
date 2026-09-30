@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}{{ portfolio.client_id }} — Portfolio{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="crumb"><a href="/">Dashboard</a> / <a href="/clients/{{ portfolio.client_id }}">{{ portfolio.client_id }}</a></p>
+    <h1>Portfolio</h1>
+    <p class="lede">Current holdings as of today · total market value {{ portfolio.total_value }}</p>
+  </div>
+  <span class="badge good">{{ portfolio.total_value }}</span>
+</section>
+
+<section class="card" style="border-left:3px solid var(--accent,#38bdf8)">
+  <h2 style="margin-top:0">Custodian Data Sync</h2>
+  <p class="muted small">Upload a brokerage CSV statement to replace the live tax-lot data for
+    this client. Expected columns: <code>Symbol</code>, <code>Shares</code>,
+    <code>Cost Basis</code>, <code>Purchase Date</code> (YYYY-MM-DD).</p>
+  <form action="/clients/{{ portfolio.client_id }}/portfolio/upload"
+        method="post"
+        enctype="multipart/form-data"
+        style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px">
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted,#94a3b8)">
+      CSV file
+      <input type="file" name="file" accept=".csv,text/csv" required
+             style="background:var(--surface-2,#1e293b);border:1px solid var(--border,#334155);
+                    border-radius:6px;padding:6px 10px;color:var(--text,#f1f5f9);font-size:13px;
+                    cursor:pointer">
+    </label>
+    <button type="submit" class="button primary"
+            style="align-self:flex-end;padding:8px 20px;font-size:13px;font-weight:600">
+      Sync Brokerage CSV
+    </button>
+  </form>
+</section>
+
+{% if not portfolio.lots %}
+<section class="card" style="text-align:center;padding:48px 24px">
+  <p style="font-size:32px;margin-bottom:12px">&#128450;</p>
+  <h2 style="margin-top:0;color:var(--muted,#94a3b8);font-weight:500">No custodian data found</h2>
+  <p class="muted small">Upload a brokerage CSV statement above to populate tax lots for this
+    client. The pipeline will use these lots when generating the next rebalance proposal.</p>
+</section>
+{% else %}
+
+<div class="columns">
+  <section class="card" style="display:flex; flex-direction:column">
+    <h2>Holdings by asset class</h2>
+    <div class="chartjs-wrap" style="height:260px; flex:1">
+      <canvas id="portfolio-donut" aria-label="Donut chart of current holdings by asset class"></canvas>
+    </div>
+    <script>
+    (function () {
+      const labels = [{% for l in portfolio.chart_labels %}'{{ l }}',{% endfor %}];
+      const values = [{% for v in portfolio.chart_values %}{{ v }},{% endfor %}];
+      const palette = ['#38bdf8','#818cf8','#fb923c','#4ade80','#f472b6'];
+      const ctx = document.getElementById('portfolio-donut');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: palette.slice(0, labels.length),
+            borderColor: 'transparent',
+            borderWidth: 0,
+            hoverOffset: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', padding: 16, font: { size: 12 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = (ctx.raw / total * 100).toFixed(1);
+                  return ` $${ctx.raw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    })();
+    </script>
+  </section>
+
+  <section class="card">
+    <h2>Allocation summary</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Symbol</th>
+            <th scope="col" class="num">Market value</th>
+            <th scope="col" class="num">Cost basis</th>
+            <th scope="col" class="num">Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in portfolio.holdings %}
+          <tr>
+            <td>{{ h.symbol }}</td>
+            <td class="num">{{ h.value }}</td>
+            <td class="num">{{ h.cost_basis }}</td>
+            <td class="num">{{ h.pct }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Tax lots</h2>
+  <p class="muted small">Individual cost lots held in this account. Gain/loss is unrealised and for display only.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Symbol</th>
+          <th scope="col">Acquired</th>
+          <th scope="col" class="num">Shares</th>
+          <th scope="col" class="num">Cost basis</th>
+          <th scope="col" class="num">Market value</th>
+          <th scope="col" class="num">Unrealised gain</th>
+          <th scope="col" class="num">Return</th>
+          <th scope="col">Term</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lot in portfolio.lots %}
+        <tr>
+          <td>{{ lot.symbol }}</td>
+          <td>{{ lot.purchase_date }}</td>
+          <td class="num">{{ lot.shares }}</td>
+          <td class="num">{{ lot.cost_basis }}</td>
+          <td class="num">{{ lot.current_value }}</td>
+          <td class="num">
+            <span class="badge {% if lot.is_gain %}good{% else %}critical{% endif %}" style="font-size:12px;padding:2px 8px">
+              {{ lot.gain }}
+            </span>
+          </td>
+          <td class="num">{{ lot.gain_pct }}</td>
+          <td>
+            {% if lot.term == "Long-term" %}
+            <span class="badge good" style="font-size:12px;padding:2px 8px">Long-term</span>
+            {% else %}
+            <span class="badge warning" style="font-size:12px;padding:2px 8px">Short-term</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -5,14 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Adviser console{% endblock %} · Wealth Advisor</title>
   <link rel="stylesheet" href="{{ url_for('static', path='console.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Wealth Advisor <span>Adviser console</span></a>
+    <a class="brand" href="/">Wealth<span class="brand-accent">Advisor</span></a>
+    {% if current_user and current_user.role == 'CLIENT' %}
     <nav aria-label="Main">
-      <a href="/">Advice runs</a>
-      <a href="/audit">Audit</a>
+      <a href="/portal" class="nav-link{% if request.url.path == '/portal' %} active{% endif %}">My Portfolio</a>
     </nav>
+    {% else %}
+    <nav aria-label="Main">
+      <a href="/" class="nav-link{% if request.url.path == '/' %} active{% endif %}">Firm Overview</a>
+      <a href="/clients/C-1049" class="nav-link{% if '/clients/' in request.url.path and '/portfolio' not in request.url.path %} active{% endif %}">Client Profile</a>
+      <a href="/clients/C-1049/portfolio" class="nav-link{% if '/portfolio' in request.url.path %} active{% endif %}">Portfolio Inspector</a>
+      <a href="/simulate" class="nav-link{% if request.url.path == '/simulate' %} active{% endif %}">Scenario Lab</a>
+    </nav>
+    {% endif %}
+    {% if current_user %}
+    <div class="nav-user" style="display:flex;align-items:center;gap:10px;margin-left:auto;padding-left:16px">
+      <span style="font-size:12px;color:var(--muted,#94a3b8)">
+        <span style="color:var(--text,#f1f5f9);font-weight:600">{{ current_user.username }}</span>
+        &nbsp;·&nbsp;
+        <span class="badge {% if current_user.role == 'CCO' %}good{% elif current_user.role == 'CLIENT' %}neutral{% else %}neutral{% endif %}"
+              style="font-size:11px;padding:2px 8px">{{ current_user.role }}</span>
+      </span>
+      <a href="/logout"
+         style="font-size:12px;color:var(--muted,#94a3b8);text-decoration:none;border:1px solid var(--border,#334155);border-radius:5px;padding:3px 10px;transition:color 0.15s"
+         onmouseover="this.style.color='#f1f5f9'" onmouseout="this.style.color=''">
+        Logout
+      </a>
+    </div>
+    {% endif %}
   </header>
   <main>
     {% block content %}{% endblock %}

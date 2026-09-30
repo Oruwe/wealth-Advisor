@@ -77,6 +77,7 @@ def briefing_facts(
                 "reason": "toward the target allocation"
                 if order.security in model
                 else "not in the model portfolio",
+                "routing_reason": None,
             }
             for order in proposal.orders
         ],

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Wealth Advisor</title>
+  <link rel="stylesheet" href="/static/console.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--page, #0f172a);
+      margin: 0;
+    }
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 0 16px;
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .login-brand .brand-name {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text, #f1f5f9);
+      letter-spacing: -0.02em;
+    }
+    .login-brand .brand-accent { color: #38bdf8; }
+    .login-brand .brand-sub {
+      font-size: 12px;
+      color: var(--muted, #94a3b8);
+      margin-top: 4px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .login-card {
+      background: var(--surface, #1e293b);
+      border: 1px solid var(--border, #334155);
+      border-radius: 12px;
+      padding: 36px 32px 32px;
+    }
+    .login-card h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text, #f1f5f9);
+      margin: 0 0 6px;
+    }
+    .login-card .subtitle {
+      font-size: 13px;
+      color: var(--muted, #94a3b8);
+      margin: 0 0 28px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+    .field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted, #94a3b8);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .field input {
+      background: var(--page, #0f172a);
+      border: 1px solid var(--border, #334155);
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text, #f1f5f9);
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .field input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    }
+    .field input::placeholder { color: #475569; }
+    .login-error {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #fca5a5;
+      margin-bottom: 18px;
+    }
+    .login-submit {
+      width: 100%;
+      padding: 11px;
+      background: #0e7490;
+      border: none;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.15s;
+      margin-top: 6px;
+    }
+    .login-submit:hover { background: #0891b2; }
+    .login-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--muted, #64748b);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="brand-name">Wealth<span class="brand-accent">Advisor</span></div>
+      <div class="brand-sub">Altis Fiduciary Partners · Adviser Console</div>
+    </div>
+
+    <div class="login-card">
+      <h1>Sign in</h1>
+      <p class="subtitle">Enter your credentials to access the console.</p>
+
+      {% if error %}
+      <div class="login-error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/token">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text"
+                 autocomplete="username" placeholder="e.g. advisor" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password"
+                 autocomplete="current-password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="login-submit">Sign in &rarr;</button>
+      </form>
+    </div>
+
+    <p class="login-footer">
+      Every advice run and decision is stored in a tamper-evident audit ledger.
+    </p>
+  </div>
+</body>
+</html>

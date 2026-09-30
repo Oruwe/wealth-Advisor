@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ client.client_id }} — Client Profile{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="crumb"><a href="/">Dashboard</a> / Clients</p>
+    <h1>{{ client.name }}</h1>
+    <p class="lede">{{ client.client_id }} · onboarded {{ client.onboarded }} · {{ client.tax_jurisdiction }} tax resident</p>
+  </div>
+  <div class="badges">
+    <span class="badge neutral">{{ client.risk_band }}</span>
+    <span class="badge neutral">Risk {{ client.risk_tolerance }}/10</span>
+  </div>
+</section>
+
+<div class="kpis">
+  <div class="kpi">
+    <span class="kpi-label">Net worth</span>
+    <span class="kpi-value">{{ client.net_worth_usd }}</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Annual income</span>
+    <span class="kpi-value">{{ client.annual_income_usd }}</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Time horizon</span>
+    <span class="kpi-value">{{ client.time_horizon_years }}<span style="font-size:14px;font-weight:400"> yr</span></span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Marginal tax rate</span>
+    <span class="kpi-value">{{ client.marginal_tax_rate_pct }}%</span>
+  </div>
+</div>
+
+<div class="columns">
+  <section class="card">
+    <h2>Risk mandate</h2>
+    <dl class="pairs">
+      <dt>Risk tolerance</dt><dd>{{ client.risk_tolerance }} out of 10</dd>
+      <dt>Risk band</dt><dd>{{ client.risk_band }}</dd>
+      <dt>Time horizon</dt><dd>{{ client.time_horizon_years }} years</dd>
+      <dt>Tax jurisdiction</dt><dd>{{ client.tax_jurisdiction }}</dd>
+      <dt>Marginal tax rate</dt><dd>{{ client.marginal_tax_rate_pct }}%</dd>
+    </dl>
+    <div style="margin-top:16px">
+      <a class="button" href="/clients/{{ client.client_id }}/portfolio">View portfolio &amp; tax lots →</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>LRS quota utilisation</h2>
+    <p class="muted small">Liberalised Remittance Scheme — annual $250,000 cap on foreign remittances.</p>
+    <div style="margin: 16px 0 8px">
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--ink-2); margin-bottom:6px">
+        <span>Used: <strong style="color:var(--ink); font-variant-numeric:tabular-nums">${{ "{:,.0f}".format(client.lrs_quota_used_usd) }}</strong></span>
+        <span>Cap: <strong style="color:var(--ink); font-variant-numeric:tabular-nums">${{ "{:,.0f}".format(client.lrs_quota_cap_usd) }}</strong></span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill{% if client.lrs_pct >= 90 %} danger{% elif client.lrs_pct >= 70 %} warn{% endif %}"
+             style="width: {{ client.lrs_pct }}%"
+             role="progressbar"
+             aria-valuenow="{{ client.lrs_pct }}"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-label="LRS quota {{ client.lrs_pct }}% used">
+        </div>
+      </div>
+      <p style="margin:8px 0 0; font-size:13px; color:var(--ink-2)">
+        {{ client.lrs_pct }}% of annual limit used ·
+        <strong style="color:var(--ink); font-variant-numeric:tabular-nums">
+          ${{ "{:,.0f}".format(client.lrs_quota_cap_usd - client.lrs_quota_used_usd) }}
+        </strong> remaining
+      </p>
+    </div>
+    <dl class="pairs" style="margin-top:12px">
+      <dt>Jurisdiction</dt><dd>{{ client.tax_jurisdiction }}</dd>
+      <dt>Annual cap</dt><dd>${{ "{:,.0f}".format(client.lrs_quota_cap_usd) }}</dd>
+      <dt>Utilised</dt><dd>${{ "{:,.0f}".format(client.lrs_quota_used_usd) }}</dd>
+    </dl>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Quick actions</h2>
+  <div class="actions">
+    <a class="button" href="/">View advice runs →</a>
+    <a class="button" href="/clients/{{ client.client_id }}/portfolio">Portfolio &amp; tax lots →</a>
+    <a class="button" href="/audit">Audit ledger →</a>
+  </div>
+</section>
+{% endblock %}

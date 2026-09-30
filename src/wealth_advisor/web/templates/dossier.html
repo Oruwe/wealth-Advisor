@@ -90,6 +90,53 @@
       {% endfor %}
     </svg>
   </figure>
+  <div class="chartjs-wrap" style="height:220px; margin-bottom:18px">
+    <canvas id="alloc-chart" aria-label="Grouped bar chart: current vs proposed allocation"></canvas>
+  </div>
+  <script>
+  (function () {
+    const labels = [{% for l in view.chart_allocation_labels %}'{{ l }}',{% endfor %}];
+    const before = [{% for v in view.chart_allocation_before %}{{ v }},{% endfor %}];
+    const after  = [{% for v in view.chart_allocation_after %}{{ v }},{% endfor %}];
+    new Chart(document.getElementById('alloc-chart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Current (%)',
+            data: before,
+            backgroundColor: 'rgba(99,102,241,0.75)',
+            borderRadius: 4,
+          },
+          {
+            label: 'Proposed (%)',
+            data: after,
+            backgroundColor: 'rgba(56,189,248,0.75)',
+            borderRadius: 4,
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 12 } } }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', callback: v => v + '%' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            min: 0,
+          },
+          y: { ticks: { color: '#f1f5f9' }, grid: { display: false } }
+        }
+      }
+    });
+  })();
+  </script>
+
   <div class="table-wrap">
     <table class="data">
       <thead>
@@ -108,21 +155,59 @@
   </div>
 </section>
 
+{% if ai_result and ai_result.target_weights %}
+<section class="card">
+  <h2>Current vs AI Target Allocation</h2>
+  <p class="muted small">Current portfolio weights compared against the AI optimizer's target
+    weights for this run.</p>
+  <div class="chart-container">
+    <canvas id="allocationChart" aria-label="Grouped bar chart: current weights vs AI target weights"></canvas>
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Trades</h2>
   <div class="table-wrap">
     <table class="data">
       <thead>
-        <tr><th scope="col">Side</th><th scope="col">Security</th><th scope="col" class="num">Shares</th>
-          <th scope="col" class="num">Price</th><th scope="col" class="num">Amount</th><th scope="col">Why</th></tr>
+        <tr>
+          <th scope="col">Side</th>
+          <th scope="col">Security</th>
+          <th scope="col" class="num">Shares</th>
+          <th scope="col" class="num">Price</th>
+          <th scope="col" class="num">Amount</th>
+          <th scope="col">Rationale</th>
+          <th scope="col">Tax / Routing</th>
+        </tr>
       </thead>
       <tbody>
         {% for order in facts["orders"] %}
-        <tr><td>{{ order["side"] | capitalize }}</td><td>{{ order["symbol"] }}</td>
-          <td class="num">{{ order["shares"] }}</td><td class="num">{{ order["price"] }}</td>
-          <td class="num">{{ order["amount"] }}</td><td>{{ order["reason"] | capitalize }}</td></tr>
+        <tr>
+          <td>
+            {% if order["side"] == "buy" %}
+            <span class="badge-green">Buy</span>
+            {% else %}
+            <span class="badge-red">Sell</span>
+            {% endif %}
+          </td>
+          <td><strong>{{ order["symbol"] }}</strong></td>
+          <td class="num">{{ order["shares"] }}</td>
+          <td class="num">{{ order["price"] }}</td>
+          <td class="num"><strong>{{ order["amount"] }}</strong></td>
+          <td><span class="muted">{{ order["reason"] | capitalize }}</span></td>
+          <td>
+            {% if order["routing_reason"] %}
+            <span class="badge neutral" style="white-space:normal; font-size:12px">
+              Proxy: {{ order["routing_reason"] }}
+            </span>
+            {% else %}
+            <span class="muted small">Direct</span>
+            {% endif %}
+          </td>
+        </tr>
         {% else %}
-        <tr><td colspan="6" class="muted">No trades: the portfolio is already on target.</td></tr>
+        <tr><td colspan="7" class="muted">No trades: the portfolio is already on target.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -146,6 +231,46 @@
 
   <section class="card">
     <h2>Tax</h2>
+    {% if view.chart_tax_st != 0 or view.chart_tax_lt != 0 %}
+    <div class="chartjs-wrap" style="height:130px; margin-bottom:16px">
+      <canvas id="tax-chart" aria-label="Short-term and long-term capital gain or loss bar chart"></canvas>
+    </div>
+    <script>
+    (function () {
+      const st = {{ view.chart_tax_st }};
+      const lt = {{ view.chart_tax_lt }};
+      const colourFor = v => v < 0 ? 'rgba(248,113,113,0.75)' : 'rgba(74,222,128,0.75)';
+      new Chart(document.getElementById('tax-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Short-term', 'Long-term'],
+          datasets: [{
+            data: [st, lt],
+            backgroundColor: [colourFor(st), colourFor(lt)],
+            borderRadius: 4,
+            label: 'Gain / Loss ($)',
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              ticks: {
+                color: '#94a3b8',
+                callback: v => '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }),
+              },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+            },
+            y: { ticks: { color: '#f1f5f9' }, grid: { display: false } }
+          }
+        }
+      });
+    })();
+    </script>
+    {% endif %}
     <dl class="pairs">
       <dt>Short-term result</dt><dd>{{ facts["tax"]["short_term_result"] | capitalize }}</dd>
       <dt>Long-term result</dt><dd>{{ facts["tax"]["long_term_result"] | capitalize }}</dd>
@@ -202,8 +327,170 @@
   <div class="briefing">{{ advice.briefing }}</div>
 </section>
 
+{% if ai_result %}
+<section class="card">
+  <h2>AI engine: risk parameters &amp; target weights</h2>
+  <p class="muted small">Derived by the fiduciary pipeline (Lyzr strategic agent + deterministic
+    cvxpy optimizer) for client {{ ai_result.client_id }},
+    event <code>{{ ai_result.event_type }}</code>, at {{ ai_result.timestamp }}.</p>
+
+  {% if ai_result.risk_parameters.compliance_warnings %}
+  <div class="alert critical" role="alert" aria-label="Compliance warnings">
+    <p><strong>Regulatory compliance warnings</strong></p>
+    <ul>
+      {% for warning in ai_result.risk_parameters.compliance_warnings %}
+      <li>{{ warning }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if ai_result.risk_parameters.advisor_guidance %}
+  <div class="alert warning" role="note" aria-label="Adviser guidance">
+    <p><strong>Adviser guidance</strong> — {{ ai_result.risk_parameters.advisor_guidance }}</p>
+  </div>
+  {% endif %}
+
+  <div class="columns">
+    <div>
+      <h3>Risk parameters</h3>
+      <dl class="pairs">
+        <dt>Target risk aversion</dt>
+        <dd>{{ ai_result.risk_parameters.target_risk_aversion }}</dd>
+        <dt>Max equity exposure</dt>
+        <dd>{{ (ai_result.risk_parameters.max_equity_exposure * 100) | round(1) }}%</dd>
+      </dl>
+    </div>
+    <div>
+      <h3>Target weights</h3>
+      <dl class="pairs">
+        {% for asset, weight in ai_result.target_weights.items() %}
+        <dt>{{ asset }}</dt><dd>{{ (weight * 100) | round(1) }}%</dd>
+        {% endfor %}
+      </dl>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if ai_result and ai_result.cross_border_metrics %}
+{% set cb = ai_result.cross_border_metrics %}
+<section class="card">
+  <h2>Cross-Border Intelligence (LRS / FEMA)</h2>
+  <p class="muted small">Regulatory compliance metrics under India's Liberalised Remittance Scheme
+    and the US Non-Resident Alien estate-tax rules. TCS is an advance-tax credit recovered at ITR.</p>
+
+  {% if cb.estate_tax_risk %}
+  <div class="alert warning" role="alert" aria-label="UCITS estate-tax override">
+    <p><strong>UCITS Override Active</strong> — {{ cb.estate_tax_message }}</p>
+    {% if cb.ucits_substitutions %}
+    <ul>
+      {% for us_ticker, ucits_ticker in cb.ucits_substitutions.items() %}
+      <li><strong>{{ us_ticker }}</strong> &rarr; <strong>{{ ucits_ticker }}</strong>
+        (Ireland-domiciled UCITS — exempt from US estate tax)</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="columns">
+    <div>
+      <h3>LRS Utilisation (FY cap: $250,000)</h3>
+      <dl class="pairs">
+        <dt>Remitted YTD</dt>
+        <dd>${{ "{:,.2f}".format(cb.remitted_ytd_usd | float) }}</dd>
+        <dt>This trade (US exposure)</dt>
+        <dd>${{ "{:,.2f}".format(cb.new_trade_usd | float) }}</dd>
+        <dt>Total after trade</dt>
+        <dd>${{ "{:,.2f}".format(cb.lrs_utilized_usd | float) }}</dd>
+        <dt>Remaining allowance</dt>
+        <dd>${{ "{:,.2f}".format(cb.lrs_remaining_usd | float) }}</dd>
+        <dt>LRS status</dt>
+        <dd>
+          {% if cb.lrs_breach %}
+          <span class="badge critical"><span aria-hidden="true">✕</span> Cap breached — RBI prior approval required</span>
+          {% else %}
+          <span class="badge good"><span aria-hidden="true">✓</span> Within $250,000 annual limit</span>
+          {% endif %}
+        </dd>
+      </dl>
+    </div>
+    <div>
+      <h3>TCS Tax Drag (Section 206C(1G))</h3>
+      <dl class="pairs">
+        <dt>TCS-free threshold</dt><dd>$12,000 (≈ ₹10 lakh per FY)</dd>
+        <dt>Applicable TCS rate</dt><dd>{{ cb.tcs_rate_pct }}%</dd>
+        <dt>Upfront TCS due</dt>
+        <dd class="strong">${{ "{:,.2f}".format(cb.tcs_tax_usd | float) }}</dd>
+      </dl>
+      <p class="muted small">TCS is deducted at source by the AD bank and credited against
+        your final income-tax liability — it is a liquidity drag until year-end ITR filing.</p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if ai_result and ai_result.trades %}
+<section class="card" id="execute">
+  <h2>Fiduciary sign-off</h2>
+  {% if broker_result %}
+  <div class="alert good" role="status" aria-label="Execution result">
+    <p><strong>Trades executed successfully</strong> — {{ broker_result.orders | length }} order(s)
+      submitted to the broker in dry-run mode.</p>
+    <ul>
+      {% for order in broker_result.orders %}
+      <li>
+        <strong>{{ order.side | capitalize }} {{ order.qty }} × {{ order.symbol }}</strong>
+        — order ID <code>{{ order.order_id }}</code>, status: {{ order.status }}
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="actions" style="margin-top:12px">
+      <a href="/advice/{{ view.record.hash }}/pdf" class="btn btn-secondary"
+         style="display:inline-block;padding:8px 18px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;letter-spacing:0.02em">
+        &#8595; Download Fiduciary PDF Report
+      </a>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted small">Submits the trades above to the paper broker. This action is
+    irreversible for this session — the order IDs will be recorded below.</p>
+  <form method="post" action="/advice/{{ view.record.hash }}/execute">
+    <div class="actions">
+      <button class="button primary" type="submit">Approve &amp; Execute Trades</button>
+      <a href="/advice/{{ view.record.hash }}/pdf" class="btn btn-secondary"
+         style="display:inline-block;padding:8px 18px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;letter-spacing:0.02em">
+        &#8595; Download Fiduciary PDF Report
+      </a>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Audit trail</h2>
+
+  {% if audit_block %}
+  <div class="fiduciary-seal" style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="badge good" style="font-size:13px;padding:5px 14px">&#10003; SEC / SEBI Fiduciary Verified</span>
+        <span class="muted small">Block sealed at {{ audit_block.timestamp }}</span>
+      </div>
+      <a class="button" href="/api/v1/ledger/verify" target="_blank" rel="noopener"
+         style="font-size:12.5px;padding:6px 14px">Verify chain &#8594;</a>
+    </div>
+    <p class="muted small" style="margin:0 0 8px">SHA-256 signature over all fiduciary payload fields. Any change to the inputs, AI mandate, or trades invalidates this hash.</p>
+    <code class="mono" style="display:block;word-break:break-all;font-size:12.5px;background:var(--page);border:1px solid var(--border);border-radius:6px;padding:10px 12px;color:var(--good-text)">{{ audit_block.signature_hash }}</code>
+    <dl class="pairs mono-values" style="margin-top:12px;font-size:13px">
+      <dt>Block ID</dt><dd>{{ audit_block.block_id }}</dd>
+      <dt>Previous block</dt><dd>{{ audit_block.previous_hash }}</dd>
+    </dl>
+  </div>
+  {% endif %}
+
   {% if view.replay_problems %}
   <div class="alert critical" role="alert">
     <p>Replaying this advice now does not reproduce it:</p>
@@ -225,4 +512,51 @@
     {% endif %}
   </dl>
 </section>
+{% if ai_result and ai_result.target_weights %}
+<script>
+(function () {
+  var el = document.getElementById('allocationChart');
+  if (!el) return;
+  var labels = [{% for l in view.chart_allocation_labels %}'{{ l }}',{% endfor %}];
+  var current = [{% for v in view.chart_allocation_before %}{{ v }},{% endfor %}];
+  var rawTargets = { {% for asset, weight in ai_result.target_weights.items() %}'{{ asset }}': {{ (weight * 100) | round(1) }},{% endfor %} };
+  var targets = labels.map(function(l) { return rawTargets[l] !== undefined ? rawTargets[l] : 0; });
+  new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Current (%)',
+          data: current,
+          backgroundColor: 'rgba(99,102,241,0.75)',
+          borderRadius: 4,
+        },
+        {
+          label: 'AI Target (%)',
+          data: targets,
+          backgroundColor: 'rgba(56,189,248,0.75)',
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 12 } } }
+      },
+      scales: {
+        x: { ticks: { color: '#f1f5f9' }, grid: { display: false } },
+        y: {
+          ticks: { color: '#94a3b8', callback: function(v) { return v + '%'; } },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          min: 0,
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

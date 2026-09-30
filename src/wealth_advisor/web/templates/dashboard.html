@@ -4,34 +4,24 @@
 {% block content %}
 <section class="page-head">
   <div>
+    <p class="crumb"><a href="/">Firm Overview</a> / Advice runs</p>
     <h1>Advice runs</h1>
     <p class="lede">Each run reads the client's IPS, rebalances with deterministic math, passes the
       suitability gate and estimates the tax. Review the dossier, then approve or decline it.</p>
   </div>
-  {% if intact %}
-  <a class="integrity good" href="/audit"><span class="icon" aria-hidden="true">✓</span>
-    Ledger intact · {{ count }} records</a>
-  {% else %}
-  <a class="integrity critical" href="/audit"><span class="icon" aria-hidden="true">✕</span>
-    Ledger fails verification</a>
-  {% endif %}
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+    {% if intact %}
+    <a class="integrity good" href="/audit"><span class="icon" aria-hidden="true">✓</span>
+      Ledger intact · {{ count }} records</a>
+    {% else %}
+    <a class="integrity critical" href="/audit"><span class="icon" aria-hidden="true">✕</span>
+      Ledger fails verification</a>
+    {% endif %}
+    <a class="button primary" href="/simulate">Run new advice →</a>
+  </div>
 </section>
 
 {% if error %}<div class="alert critical" role="alert">{{ error }}</div>{% endif %}
-
-<section class="card">
-  <h2>New advice run</h2>
-  {% if can_run %}
-  <form method="post" action="/runs" class="inline-form">
-    <p>Advise the demo client C-1001 (a $100k conservative account) through the Lyzr agents.
-      It takes about a minute.</p>
-    <button class="button primary" type="submit">Run advice</button>
-  </form>
-  {% else %}
-  <p class="muted">Set <code>LYZR_API_KEY</code> in <code>.env</code> and restart the console to
-    run new advice. Reviewing, approving and auditing work without it.</p>
-  {% endif %}
-</section>
 
 <section class="card">
   <h2>Recorded runs</h2>

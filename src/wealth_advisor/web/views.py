@@ -109,6 +109,11 @@ class Dossier:
     lot_sales: list[LotSaleRow]
     status: Status
     replay_problems: list[str]
+    chart_allocation_labels: list[str]
+    chart_allocation_before: list[float]
+    chart_allocation_after: list[float]
+    chart_tax_st: float
+    chart_tax_lt: float
 
 
 def when(moment: datetime) -> str:
@@ -188,6 +193,11 @@ def dossier(record: LedgerRecord, records: list[LedgerRecord]) -> Dossier:
         ],
         status=status_of(record.hash, records),
         replay_problems=replay(entry),
+        chart_allocation_labels=[r.label for r in allocation],
+        chart_allocation_before=[float(r.before[:-1]) for r in allocation],
+        chart_allocation_after=[float(r.after[:-1]) for r in allocation],
+        chart_tax_st=float(advice.tax.short_term_gain),
+        chart_tax_lt=float(advice.tax.long_term_gain),
     )
 
 

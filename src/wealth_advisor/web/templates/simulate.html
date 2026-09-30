@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Scenario Lab{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="crumb"><a href="/">Firm Overview</a> / Scenario Lab</p>
+    <h1>Scenario Lab</h1>
+    <p class="lede">Advise a client through the Lyzr agents and the AI fiduciary pipeline. The
+      result is recorded in the tamper-evident ledger and awaits your decision.</p>
+  </div>
+</section>
+
+{% if error %}<div class="alert critical" role="alert">{{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>New advice run</h2>
+  {% if can_run %}
+  <form method="post" action="/runs" class="inline-form">
+    <p>All inputs go through deterministic math. The Lyzr agents read the IPS and write the
+      briefing only — every trade weight comes from the cvxpy optimizer. Takes about a minute.</p>
+    <div class="field-row">
+      <label>Client ID
+        <input name="client_id" value="C-1001" placeholder="C-1001">
+      </label>
+      <label>Risk tolerance (1–10)
+        <input name="risk_tolerance" type="number" min="1" max="10" value="3">
+      </label>
+      <label>Event type
+        <input name="event_type" value="advisor_requested_rebalance"
+               placeholder="advisor_requested_rebalance">
+      </label>
+    </div>
+    <button class="button primary" type="submit">Run advice</button>
+  </form>
+  {% else %}
+  <p class="muted">Set <code>LYZR_API_KEY</code> in <code>.env</code> and restart the console to
+    run new advice. Reviewing, approving and auditing work without it.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>What happens in a run</h2>
+  <dl class="pairs">
+    <dt>1. IPS reader</dt>
+    <dd>Lyzr agent reads the client's Investment Policy Statement and extracts verified facts.</dd>
+    <dt>2. Risk engine</dt>
+    <dd>cvxpy optimizer computes target weights using mean-variance optimization with suitability caps.</dd>
+    <dt>3. Tax engine</dt>
+    <dd>HIFO lot selection minimises realised gains; wash-sale flags protect the loss.</dd>
+    <dt>4. Suitability gate</dt>
+    <dd>Re-derives the post-trade portfolio from orders and verifies every FINRA suitability rule.</dd>
+    <dt>5. Briefing writer</dt>
+    <dd>Lyzr agent explains each number — checked against facts before acceptance.</dd>
+    <dt>6. Ledger</dt>
+    <dd>Every figure is hashed into a tamper-evident chain entry. You approve or decline.</dd>
+  </dl>
+</section>
+{% endblock %}

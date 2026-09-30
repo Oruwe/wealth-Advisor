@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}My Portfolio — {{ client.name }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>My Portfolio</h1>
+    <p class="lede">Welcome back, {{ client.name }}. Your portfolio is managed by a licensed fiduciary
+      adviser — every trade proposal is reviewed and approved before execution.</p>
+  </div>
+  <span class="badge good" style="font-size:16px;padding:6px 16px">{{ portfolio.total_value }}</span>
+</section>
+
+<div class="kpis">
+  <div class="kpi">
+    <span class="kpi-label">Total market value</span>
+    <span class="kpi-value">{{ portfolio.total_value }}</span>
+    <span class="kpi-note">as of today</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Tax jurisdiction</span>
+    <span class="kpi-value" style="font-size:22px">{{ client.tax_jurisdiction }}</span>
+    <span class="kpi-note">LRS utilised {{ client.lrs_pct }}%</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Risk profile</span>
+    <span class="kpi-value" style="font-size:22px">{{ client.risk_band }}</span>
+    <span class="kpi-note">tolerance {{ client.risk_tolerance }} / 10</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Time horizon</span>
+    <span class="kpi-value" style="font-size:22px">{{ client.time_horizon_years }}y</span>
+    <span class="kpi-note">investment horizon</span>
+  </div>
+</div>
+
+{% if portfolio.lots %}
+<div class="columns">
+  <section class="card" style="display:flex;flex-direction:column">
+    <h2>Holdings by asset class</h2>
+    <div class="chartjs-wrap" style="height:260px;flex:1">
+      <canvas id="portal-donut" aria-label="Donut chart of current holdings by asset class"></canvas>
+    </div>
+    <script>
+    (function () {
+      const labels = [{% for l in portfolio.chart_labels %}'{{ l }}',{% endfor %}];
+      const values = [{% for v in portfolio.chart_values %}{{ v }},{% endfor %}];
+      const palette = ['#38bdf8','#818cf8','#fb923c','#4ade80','#f472b6'];
+      const ctx = document.getElementById('portal-donut');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: palette.slice(0, labels.length),
+            borderColor: 'transparent',
+            borderWidth: 0,
+            hoverOffset: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', padding: 16, font: { size: 12 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = (ctx.raw / total * 100).toFixed(1);
+                  return ` $${ctx.raw.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    })();
+    </script>
+  </section>
+
+  <section class="card">
+    <h2>Allocation summary</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Symbol</th>
+            <th scope="col" class="num">Market value</th>
+            <th scope="col" class="num">Cost basis</th>
+            <th scope="col" class="num">Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in portfolio.holdings %}
+          <tr>
+            <td>{{ h.symbol }}</td>
+            <td class="num">{{ h.value }}</td>
+            <td class="num">{{ h.cost_basis }}</td>
+            <td class="num">{{ h.pct }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Tax lots</h2>
+  <p class="muted small">Individual cost lots held in this account. Gain/loss is unrealised and shown
+    for your reference only. Contact your adviser to request a rebalance.</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Symbol</th>
+          <th scope="col">Acquired</th>
+          <th scope="col" class="num">Shares</th>
+          <th scope="col" class="num">Cost basis</th>
+          <th scope="col" class="num">Market value</th>
+          <th scope="col" class="num">Unrealised gain</th>
+          <th scope="col" class="num">Return</th>
+          <th scope="col">Term</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lot in portfolio.lots %}
+        <tr>
+          <td>{{ lot.symbol }}</td>
+          <td>{{ lot.purchase_date }}</td>
+          <td class="num">{{ lot.shares }}</td>
+          <td class="num">{{ lot.cost_basis }}</td>
+          <td class="num">{{ lot.current_value }}</td>
+          <td class="num">
+            <span class="badge {% if lot.is_gain %}good{% else %}critical{% endif %}" style="font-size:12px;padding:2px 8px">
+              {{ lot.gain }}
+            </span>
+          </td>
+          <td class="num">{{ lot.gain_pct }}</td>
+          <td>
+            {% if lot.term == "Long-term" %}
+            <span class="badge good" style="font-size:12px;padding:2px 8px">Long-term</span>
+            {% else %}
+            <span class="badge warning" style="font-size:12px;padding:2px 8px">Short-term</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="card" style="text-align:center;padding:48px 24px">
+  <p style="font-size:32px;margin-bottom:12px">&#128450;</p>
+  <h2 style="margin-top:0;color:var(--muted,#94a3b8);font-weight:500">No portfolio data on file</h2>
+  <p class="muted small">Your adviser will upload your custodian CSV to populate your tax-lot data.
+    Please contact your adviser if you believe this is an error.</p>
+</section>
+{% endif %}
+
+<section class="card" style="border-left:3px solid var(--accent,#38bdf8)">
+  <h2 style="margin-top:0">Need to make changes?</h2>
+  <p style="margin:0;font-size:14px;color:var(--muted,#94a3b8)">
+    All investment decisions — rebalances, withdrawals, and mandate changes — require your adviser's
+    fiduciary review before execution. To request a change, contact your adviser directly.
+    Every trade proposal is recorded in a tamper-evident audit ledger and approved by a licensed professional.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% from "_status.html" import status_badge %}
+{% block title %}Firm Overview{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Firm Overview</h1>
+    <p class="lede">Real-time fiduciary intelligence across all client mandates. Every number is
+      deterministic and tamper-evident.</p>
+  </div>
+  {% if intact %}
+  <a class="integrity good" href="/audit"><span class="icon" aria-hidden="true">✓</span>
+    Ledger intact · {{ record_count }} records</a>
+  {% else %}
+  <a class="integrity critical" href="/audit"><span class="icon" aria-hidden="true">✕</span>
+    Ledger fails verification</a>
+  {% endif %}
+</section>
+
+{% if alerts %}
+<section class="card" style="border-left:3px solid #f59e0b;margin-bottom:0">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <span style="font-size:18px" aria-hidden="true">&#9888;</span>
+    <h2 style="margin:0;color:#fbbf24">Action Required: System Alerts</h2>
+    <span class="badge" style="background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);font-size:12px;padding:2px 10px">
+      {{ alerts | length }} unresolved
+    </span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    {% for alert in alerts %}
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+                background:var(--surface-2,#1e293b);border:1px solid
+                {% if alert.alert_type == 'DRIFT_WARNING' %}rgba(245,158,11,0.3)
+                {% else %}rgba(248,113,113,0.3){% endif %};
+                border-radius:8px;padding:12px 16px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="badge"
+                style="font-size:11px;padding:2px 8px;
+                {% if alert.alert_type == 'DRIFT_WARNING' %}
+                  background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.4)
+                {% else %}
+                  background:rgba(248,113,113,0.15);color:#fca5a5;border:1px solid rgba(248,113,113,0.4)
+                {% endif %}">
+            {{ alert.alert_type | replace("_", " ") }}
+          </span>
+          <span style="font-size:12px;color:var(--muted,#94a3b8)">
+            Client <strong style="color:var(--text,#f1f5f9)">{{ alert.client_id }}</strong>
+          </span>
+          {% if alert.created_at %}
+          <span style="font-size:11px;color:var(--muted,#64748b)">
+            · {{ alert.created_at.strftime('%Y-%m-%d %H:%M') if alert.created_at else '' }}
+          </span>
+          {% endif %}
+        </div>
+        <p style="margin:0;font-size:13px;color:var(--text,#f1f5f9)">{{ alert.message }}</p>
+      </div>
+      <a href="/simulate?client_id={{ alert.client_id }}"
+         class="button primary"
+         style="white-space:nowrap;font-size:12px;padding:6px 14px;flex-shrink:0">
+        Resolve &rarr;
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="kpis">
+  <div class="kpi">
+    <span class="kpi-label">Firm AUM</span>
+    <span class="kpi-value">{{ firm_aum }}</span>
+    <span class="kpi-note">across all mandates</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Pending fiduciary actions</span>
+    <span class="kpi-value">{{ pending_actions }}</span>
+    <span class="kpi-note">awaiting adviser decision</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Tax alpha harvested YTD</span>
+    <span class="kpi-value" style="color:var(--good-text)">{{ tax_alpha_ytd }}</span>
+    <span class="kpi-note">realised capital-loss credits</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Advice runs recorded</span>
+    <span class="kpi-value">{{ record_count }}</span>
+    <span class="kpi-note"><a href="/dashboard">view all runs →</a></span>
+  </div>
+</div>
+
+<div class="columns">
+  <section class="card">
+    <h2>Quick links</h2>
+    <div class="actions" style="flex-wrap:wrap; gap:10px">
+      <a class="button primary" href="/simulate">Run new advice</a>
+      <a class="button" href="/dashboard">Advice runs ledger</a>
+      <a class="button" href="/clients/C-1049">Client C-1049</a>
+      <a class="button" href="/clients/C-1049/portfolio">Portfolio inspector</a>
+      <a class="button" href="/audit">Audit ledger</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Compliance status</h2>
+    <dl class="pairs">
+      <dt>Suitability gate</dt>
+      <dd><span class="badge-green">All mandates compliant</span></dd>
+      <dt>LRS cap exposure</dt>
+      <dd><span class="badge-yellow">2 clients near limit</span></dd>
+      <dt>Wash-sale flags</dt>
+      <dd><span class="badge-red">3 open warnings</span></dd>
+      <dt>UCITS substitutions</dt>
+      <dd><span class="badge-green">Active on NRA clients</span></dd>
+    </dl>
+  </section>
+</div>
+
+{% if recent_runs %}
+<section class="card">
+  <h2>Recent advice runs</h2>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Recorded</th>
+          <th scope="col">Client</th>
+          <th scope="col" class="num">Trades</th>
+          <th scope="col">Suitability gate</th>
+          <th scope="col" class="num">Est. tax</th>
+          <th scope="col">Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in recent_runs %}
+        <tr>
+          <td class="num"><a href="/advice/{{ run.hash }}">{{ run.sequence }}</a></td>
+          <td>{{ run.recorded_at }}</td>
+          <td><a href="/advice/{{ run.hash }}">{{ run.client_id }}</a></td>
+          <td class="num">{{ run.orders }}</td>
+          <td>
+            {% if run.passed_gate %}
+            <span class="badge good"><span aria-hidden="true">✓</span> Passed</span>
+            {% else %}
+            <span class="badge critical"><span aria-hidden="true">✕</span> Blocked</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ run.estimated_tax }}</td>
+          <td>{{ status_badge(run.status) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin:12px 0 0; font-size:13px">
+    <a href="/dashboard">View all {{ record_count }} runs →</a>
+  </p>
+</section>
+{% endif %}
+{% endblock %}

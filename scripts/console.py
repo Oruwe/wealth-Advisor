@@ -7,6 +7,7 @@ for the demo client also needs LYZR_API_KEY in a local `.env`. The console liste
 computer only.
 """
 
+import os
 from pathlib import Path
 
 import uvicorn
@@ -26,7 +27,8 @@ def main() -> None:
         print("LYZR_API_KEY is not set: the console can review, approve and audit, but not run")
         print("new advice. Set it in .env and restart to enable runs.")
         runner = None
-    uvicorn.run(create_app(Ledger(Path("ledger.jsonl")), runner), host="127.0.0.1", port=8000)
+    host = os.environ.get("HOST", "127.0.0.1")
+    uvicorn.run(create_app(Ledger(Path("ledger.jsonl")), runner), host=host, port=8000)
 
 
 if __name__ == "__main__":
